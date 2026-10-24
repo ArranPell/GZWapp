@@ -7,6 +7,7 @@ Data comes from the community [GZW Data API](https://gzw-data.dev/docs/), which 
 ## What's in it
 
 - **Tasks**: all 250 tasks, filterable by vendor, area, type (main, side, contract, hidden) and status. Each one shows its briefing and its objectives split into steps. Tick tasks off as you finish them.
+- **Faction setting** (LRI, CSI or MSS): each faction runs the same starter tasks in its own town, and the API stores those once with all three towns. Pick your faction and they show in your starting town, and other factions' exclusive tasks are hidden. "All factions" shows everything.
 - **Keys**: every key and keycard, grouped by area, with what it opens. Tick the ones you have.
 - **Loot**: every lootable item in one list, flagged with the tasks that name it. By default it shows only items needed for tasks you haven't done.
 - **Database**: about 80 categories (weapons, ammo, armour, attachments, meds, clothing, regions, vendors and more), with search, filters, sorting and a **Compare** table view.

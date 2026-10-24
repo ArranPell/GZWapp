@@ -60,3 +60,29 @@ window.addEventListener('storage', (e) => {
     listeners.forEach((fn) => fn(state));
   }
 });
+
+// Preferences: currently just the player's faction. '' = not chosen yet,
+// 'all' = show every faction's tasks, otherwise a code from FACTIONS.
+const PREFS_KEY = 'gzw.prefs.v1';
+
+function loadPrefs() {
+  try {
+    return { faction: '', ...JSON.parse(localStorage.getItem(PREFS_KEY)) };
+  } catch {
+    return { faction: '' };
+  }
+}
+
+let prefState = loadPrefs();
+
+export const prefs = {
+  get faction() { return prefState.faction; },
+  setFaction(code) {
+    prefState = { ...prefState, faction: code };
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefState));
+    } catch {
+      // Not persisted; still applies for this session.
+    }
+  },
+};

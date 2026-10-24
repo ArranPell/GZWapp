@@ -1,11 +1,11 @@
 import { html, mount, progressBar } from '../ui.js';
-import { loadTasks } from '../data.js';
+import { loadMyTasks } from '../data.js';
 import { progress } from '../store.js';
 import { canInstall, onInstallChange, promptInstall, isStandalone } from '../pwa.js';
 
 export async function homeView(ctx) {
   // The home page should never fail just because the API is slow.
-  const tasks = await loadTasks().catch(() => null);
+  const tasks = await loadMyTasks().catch(() => null);
   if (!ctx.alive()) return;
 
   const p = progress.get();

@@ -1,21 +1,24 @@
 import { html, mount, row, select, searchBox, progressBar, empty, itemHref, taskHref, debounce, fmtCount } from '../ui.js';
-import { loadKeys } from '../data.js';
+import { loadKeys, loadMyTasks } from '../data.js';
 import { progress } from '../store.js';
 import { matchesQuery } from '../lib.js';
 
-export function taskChips(tasks) {
+// Task links under a key or item. `mine` (a Map of the player's tasks by
+// id) drops other factions' tasks.
+export function taskChips(tasks, mine) {
+  if (mine) tasks = tasks.filter((t) => mine.has(t.id));
   if (!tasks.length) return '';
   return html`<span class="task-chips">${tasks.map((t) => html`<a class="task-chip ${progress.isTaskDone(t.id) ? 'is-done' : ''}" href="${taskHref(t.id)}">${t.name}</a>`)}</span>`;
 }
 
-function keyRow(k) {
+function keyRow(k, mine) {
   const owned = progress.isKeyOwned(k.id);
   return row({
     link: itemHref(k.dataset, k.id),
     image: k.image,
     title: k.name,
     sub: k.usage || 'No location in the data',
-    extra: taskChips(k.tasks),
+    extra: taskChips(k.tasks, mine),
     cls: owned ? 'is-owned' : '',
     trailing: html`<label class="check" title="I have this key">
       <input type="checkbox" data-key="${k.id}" ${owned ? 'checked' : ''} aria-label="Have ${k.name}">
@@ -25,7 +28,7 @@ function keyRow(k) {
 }
 
 export async function keysView(ctx) {
-  const keys = await loadKeys();
+  const [keys, { byId: mine }] = await Promise.all([loadKeys(), loadMyTasks()]);
   if (!ctx.alive()) return;
 
   // Sections: biggest areas first, one-off spots and "Unknown" at the end.
@@ -79,7 +82,7 @@ export async function keysView(ctx) {
       .filter(([, list]) => list.length)
       .map(([area, list]) => html`<section class="group">
         <h2 class="group-title">${area} <span class="muted">${fmtCount(list.length, 'key')}</span></h2>
-        <ul class="rows">${list.map(keyRow)}</ul>
+        <ul class="rows">${list.map((k) => keyRow(k, mine))}</ul>
       </section>`));
   }
 

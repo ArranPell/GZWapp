@@ -92,6 +92,42 @@ export function taskLocations(task) {
   return loc.split(',').map((s) => titleCase(s.trim())).filter(Boolean);
 }
 
+// Player factions and their starter towns. Each faction runs the same
+// starter tasks in its own town, so the API stores those tasks once with all
+// three towns as the location.
+export const FACTIONS = {
+  LRI: { name: 'Lamang Recovery Initiative', match: 'LRI|Lamang Recovery', start: 'Pha Lang' },
+  CSI: { name: 'Crimson Shield International', match: 'CSI|Crimson Shield', start: 'Kiu Vongsa' },
+  MSS: { name: 'Mithras Security Systems', match: 'MSS|Mithras', start: 'Nam Thaven' },
+};
+const STARTER_TOWNS = Object.values(FACTIONS).map((f) => f.start);
+
+// The task "faction" field is free text: "LRI", "CSI,LRI", "MSS / CSI",
+// "Lamang Recovery Initiative". Returns faction codes; [] means everyone.
+export function parseFactions(text) {
+  if (!text) return [];
+  const found = new Set();
+  for (const [code, f] of Object.entries(FACTIONS)) {
+    if (new RegExp(`\\b(${f.match})\\b`, 'i').test(text)) found.add(code);
+  }
+  return [...found];
+}
+
+// Tasks as one faction sees them: other factions' exclusives removed and the
+// shared starter tasks placed in this faction's town. A falsy or 'all'
+// faction returns the list unchanged.
+export function applyFaction(tasks, faction) {
+  const f = FACTIONS[faction];
+  if (!f) return tasks;
+  return tasks
+    .filter((t) => !t.factions?.length || t.factions.includes(faction))
+    .map((t) => {
+      const starters = t.areas.filter((a) => STARTER_TOWNS.includes(a));
+      if (starters.length < 2) return t;
+      return { ...t, areas: [f.start, ...t.areas.filter((a) => !STARTER_TOWNS.includes(a))] };
+    });
+}
+
 // Keys outside the main regions still name their spot ("...in Fanny
 // Paradise"), so that phrase becomes the group rather than "Unknown".
 export function keyArea(key) {

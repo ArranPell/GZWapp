@@ -1,7 +1,8 @@
 // Enriched, app-level views of the raw datasets, shared across pages.
 
 import { dataset, datasets } from './api.js';
-import { splitObjectives, taskLocations, keyArea, taskMentions, collapseRepeat, LONG_STEP } from './lib.js';
+import { splitObjectives, taskLocations, keyArea, taskMentions, collapseRepeat, applyFaction, parseFactions, LONG_STEP } from './lib.js';
+import { prefs } from './store.js';
 import { LOOT_DATASETS } from './catalog.js';
 
 let tasksPromise = null;
@@ -25,6 +26,7 @@ export function loadTasks() {
             ...t,
             briefing: collapseRepeat(t.briefing),
             areas: taskLocations(t),
+            factions: parseFactions(t.faction),
             steps: parts.filter((s) => s.length <= LONG_STEP),
             notes: parts.filter((s) => s.length > LONG_STEP),
             kinds,
@@ -85,6 +87,14 @@ export function loadLoot() {
       .catch((err) => { lootPromise = null; throw err; });
   }
   return lootPromise;
+}
+
+// Tasks as the player's faction sees them (see applyFaction). `byId` here
+// only holds tasks available to that faction.
+export async function loadMyTasks() {
+  const all = await loadTasks();
+  const list = applyFaction(all.list, prefs.faction);
+  return { ...all, list, byId: new Map(list.map((t) => [t.id, t])), all: all.list };
 }
 
 export async function findRecord(name, id) {
