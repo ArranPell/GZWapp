@@ -33,6 +33,10 @@ export async function homeView(ctx) {
         <span class="home-tile-title">Loot</span>
         <span class="muted">What to keep for your open tasks</span>
       </a></li>
+      <li><a class="home-tile" href="#/vendors">
+        <span class="home-tile-title">Vendors</span>
+        <span class="muted">Who sells what, and at which rep</span>
+      </a></li>
       <li><a class="home-tile" href="#/db">
         <span class="home-tile-title">Database</span>
         <span class="muted">Weapons, ammo, armour, attachments and more</span>

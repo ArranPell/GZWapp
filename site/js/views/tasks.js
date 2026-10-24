@@ -1,6 +1,6 @@
 import { html, mount, select, searchBox, progressBar, empty, img, itemHref, taskHref, href, debounce, fmtCount } from '../ui.js';
 import { loadTasks, loadMyTasks, loadKeys, loadLoot } from '../data.js';
-import { progress, prefs } from '../store.js';
+import { progress, prefs, characters } from '../store.js';
 import { matchesQuery, applyFaction, FACTIONS } from '../lib.js';
 
 const KINDS = ['Main', 'Side', 'Contract', 'Hidden'];
@@ -74,7 +74,7 @@ export async function tasksView(ctx) {
   mount(ctx.root, html`
     <header class="page-head">
       <h1>Tasks</h1>
-      ${faction ? html`<p class="muted small">${prefs.faction} tasks, starting in ${faction.start} · <a href="#/settings">change</a></p>` : ''}
+      <p class="muted small">${characters.active().name}${faction ? ` · ${prefs.faction}, starting in ${faction.start}` : ''} · <a href="#/characters">change</a></p>
       <p class="muted" id="task-summary"></p>
       <div id="task-progress"></div>
     </header>

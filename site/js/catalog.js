@@ -97,3 +97,16 @@ export const SUMMARY_FIELDS = [
 
 // Fields never shown in the generic field table.
 export const HIDDEN_FIELDS = new Set(['id', 'name', 'image', 'numeric_values']);
+
+// Datasets whose records carry sold_by, i.e. what vendors stock. "gear"
+// (mixed, duplicates) and "upcoming_content" (not in the game yet) are left
+// out. Checked against the API on 2026-10-24.
+export const VENDOR_DATASETS = [
+  'weapons', 'ammo', 'magazines', 'throwables', 'mortar_rounds',
+  'stocks', 'handguards', 'mounts', 'muzzle_devices', 'barrels', 'pistol_grips', 'suppressors', 'collimators',
+  'rear_iron_sights', 'front_iron_sights', 'foregrips', 'upper_receivers', 'slides', 'scopes', 'charging_handle',
+  'stock_adapters', 'tactical_devices', 'gas_blocks', 'auxiliary', 'buffer_tubes',
+  'helmets', 'plate_carriers', 'vests', 'glasses', 'rigs', 'backpacks', 'belts', 'headsets', 'night_vision',
+  'face_cover', 'binoculars', 'helmet_mounts', 'containers', 'items',
+  'provisions', 'medical', 'drinks', 'food', 'repair_kits', 'tools',
+];

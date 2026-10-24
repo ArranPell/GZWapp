@@ -25,6 +25,7 @@ const SHELL_FILES = [
   './js/pwa.js',
   './js/store.js',
   './js/ui.js',
+  './js/views/characters.js',
   './js/views/database.js',
   './js/views/home.js',
   './js/views/item.js',
@@ -33,6 +34,7 @@ const SHELL_FILES = [
   './js/views/search.js',
   './js/views/settings.js',
   './js/views/tasks.js',
+  './js/views/vendors.js',
 ];
 
 self.addEventListener('install', (event) => {

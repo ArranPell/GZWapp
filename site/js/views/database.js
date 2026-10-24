@@ -1,7 +1,7 @@
 import { html, mount, select, searchBox, empty, img, itemHref, debounce, fmtCount } from '../ui.js';
 import { dataset, version } from '../api.js';
 import { GROUPS, SUMMARY_FIELDS, HIDDEN_FIELDS, datasetLabel, groupOf } from '../catalog.js';
-import { matchesQuery, numericField, parseSoldBy, fieldLabel } from '../lib.js';
+import { matchesQuery, numericField, parseOffers, fieldLabel } from '../lib.js';
 
 export async function dbIndexView(ctx) {
   const v = await version().catch(() => null);
@@ -84,7 +84,7 @@ export async function dbListView(ctx) {
   if (!ctx.alive()) return;
 
   const types = [...new Set(rows.map((r) => r.type).filter(Boolean))].sort();
-  const vendors = [...new Set(rows.map((r) => parseSoldBy(r.sold_by)?.vendor).filter(Boolean))].sort();
+  const vendors = [...new Set(rows.flatMap((r) => parseOffers(r.sold_by).map((o) => o.vendor)))].sort();
   const nums = numericKeys(rows);
   const sortOptions = [['name', 'Name A–Z'], ...nums.flatMap((k) => [[`${k}:desc`, `${fieldLabel(k)} ↓ high first`], [`${k}:asc`, `${fieldLabel(k)} ↑ low first`]])];
   const cols = tableColumns(rows);
@@ -124,7 +124,7 @@ export async function dbListView(ctx) {
     const [key, dir] = f.sort.split(':');
     const filtered = rows
       .filter((r) => (!f.type || r.type === f.type)
-        && (!f.vendor || parseSoldBy(r.sold_by)?.vendor === f.vendor)
+        && (!f.vendor || parseOffers(r.sold_by).some((o) => o.vendor === f.vendor))
         && matchesQuery(r, f.q))
       .sort((a, b) => {
         if (key === 'name') return a.name.localeCompare(b.name);

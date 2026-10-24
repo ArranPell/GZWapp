@@ -7,6 +7,9 @@ import { keysView } from './views/keys.js';
 import { lootView } from './views/loot.js';
 import { searchView } from './views/search.js';
 import { settingsView } from './views/settings.js';
+import { charactersView } from './views/characters.js';
+import { vendorsView, vendorView } from './views/vendors.js';
+import { characters, progress } from './store.js';
 
 const ROUTES = [
   [/^\/$/, homeView, 'home'],
@@ -19,6 +22,9 @@ const ROUTES = [
   [/^\/loot$/, lootView, 'loot'],
   [/^\/search$/, searchView, 'search'],
   [/^\/settings$/, settingsView, 'settings'],
+  [/^\/characters$/, charactersView, 'characters'],
+  [/^\/vendors$/, vendorsView, 'vendors'],
+  [/^\/vendor\/([^/]+)$/, vendorView, 'vendors'],
 ];
 
 const root = document.getElementById('view');
@@ -87,6 +93,25 @@ async function render() {
 }
 
 window.addEventListener('hashchange', () => render());
+
+// Top-bar pill shows the active character. Switching character re-renders
+// the page; other changes (ticking a task) only refresh the pill.
+const pill = document.getElementById('char-pill');
+let shownCharacter = characters.active().id;
+function updatePill() {
+  const c = characters.active();
+  pill.textContent = c.name;
+  pill.title = `Playing as ${c.name}. Tap to manage characters.`;
+}
+updatePill();
+progress.subscribe(() => {
+  updatePill();
+  const id = characters.active().id;
+  if (id !== shownCharacter) {
+    shownCharacter = id;
+    if (!location.hash.startsWith('#/characters')) render();
+  }
+});
 window.addEventListener('scroll', () => scrollMemory.set(location.hash, window.scrollY), { passive: true });
 
 root.addEventListener('click', (e) => {

@@ -1,9 +1,10 @@
-import { html, mount, empty, img, taskHref, href, fmtCount } from '../ui.js';
+import { html, mount, empty, img, taskHref, href } from '../ui.js';
 import { findRecord, loadMyTasks, loadKeys } from '../data.js';
 import { datasetLabel, groupOf, HIDDEN_FIELDS, TASK_DATASETS } from '../catalog.js';
-import { fieldLabel, taskMentions, keyArea } from '../lib.js';
+import { fieldLabel, taskMentions, keyArea, parseOffers } from '../lib.js';
 import { progress } from '../store.js';
 import { vendorBadge } from './tasks.js';
+import { vendorHref } from './vendors.js';
 
 const LONG_FIELD = 120;
 
@@ -15,6 +16,12 @@ function splitAmmo(text, caliber) {
 }
 
 function fieldValue(r, k) {
+  if (k === 'sold_by') {
+    const offers = parseOffers(r[k]);
+    if (offers.length) {
+      return offers.map((o, i) => html`${i ? ', ' : ''}<a href="${vendorHref(o.vendor)}">${o.vendor}</a>${o.rep ? ` (rep ${o.rep})` : ''}${o.after ? ` after ${o.after}` : ''}`);
+    }
+  }
   if (k === 'accepted_ammunition') {
     const rounds = splitAmmo(r[k], r.caliber);
     if (rounds.length > 1) return html`<ul class="plain-list">${rounds.map((x) => html`<li>${x}</li>`)}</ul>`;
@@ -32,6 +39,10 @@ export async function itemView(ctx) {
   const [name, id] = ctx.match;
   if (TASK_DATASETS.includes(name)) {
     location.replace(taskHref(id));
+    return;
+  }
+  if (name === 'vendors') {
+    location.replace(`#/vendor/${encodeURIComponent(id)}`);
     return;
   }
   const r = await findRecord(name, id);
@@ -83,11 +94,6 @@ export async function itemView(ctx) {
         ${here.length ? html`<p><a href="${href('/tasks', { area: r.name, status: 'all' })}">Open in task tracker →</a></p>${taskLinks(here)}` : html`<p class="muted">None.</p>`}</section>`);
       sections.push(html`<section class="detail-section"><h2>Keys here <span class="muted">${keys.length}</span></h2>
         ${keys.length ? html`<p><a href="${href('/keys', { area: r.name })}">Open in keys →</a></p>` : html`<p class="muted">None.</p>`}</section>`);
-    } else if (name === 'vendors') {
-      const theirs = list.filter((t) => t.vendor === r.name);
-      const done = theirs.filter((t) => progress.isTaskDone(t.id)).length;
-      sections.push(html`<section class="detail-section"><h2>Tasks</h2>
-        <p>${done} of ${fmtCount(theirs.length, 'task')} done. <a href="${href('/tasks', { vendor: r.name })}">Open in task tracker →</a></p></section>`);
     } else {
       const hits = taskMentions([r], list).get(r) || [];
       if (hits.length) {

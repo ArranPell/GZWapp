@@ -40,3 +40,29 @@ test('manifest icons exist', () => {
 test('the deploy workflow can stamp the service worker version', () => {
   assert.match(sw, /^const VERSION = 'dev';$/m);
 });
+
+// A missing export kills the whole app at load time, and the unit tests
+// never import the DOM-bound view modules, so check every import statically.
+test('every named import resolves to an export', () => {
+  const files = walk(site).filter((p) => p.endsWith('.js') && !p.endsWith('sw.js'));
+  const exportsOf = new Map(files.map((f) => {
+    const src = readFileSync(f, 'utf8');
+    const names = new Set([
+      ...[...src.matchAll(/^export (?:async )?(?:function|const|let|class) (\w+)/gm)].map((m) => m[1]),
+      ...[...src.matchAll(/^export \{([^}]+)\}/gm)].flatMap((m) => m[1].split(',').map((n) => n.trim().split(/\s+as\s+/).pop())),
+    ]);
+    return [f, names];
+  }));
+  const problems = [];
+  for (const f of files) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/^import \{([^}]+)\} from '([^']+)';/gm)) {
+      const target = join(f, '..', m[2]);
+      if (!exportsOf.has(target)) { problems.push(`${relative(site, f)}: ${m[2]} not found`); continue; }
+      for (const name of m[1].split(',').map((n) => n.trim().split(/\s+as\s+/)[0]).filter(Boolean)) {
+        if (!exportsOf.get(target).has(name)) problems.push(`${relative(site, f)}: ${name} is not exported by ${m[2]}`);
+      }
+    }
+  }
+  assert.deepEqual(problems, []);
+});

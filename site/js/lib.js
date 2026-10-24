@@ -141,11 +141,29 @@ export function keyArea(key) {
 // "step" is shown as notes rather than a checklist line.
 export const LONG_STEP = 160;
 
-// "Turncoat R.2" -> { vendor: "Turncoat", rep: 2 }
-export function parseSoldBy(soldBy) {
-  if (!soldBy) return null;
-  const m = String(soldBy).trim().match(/^(.*?)\s*R\.?\s*(\d+)$/i);
-  return m ? { vendor: m[1].trim(), rep: Number(m[2]) } : { vendor: String(soldBy).trim(), rep: null };
+export const VENDORS = ['Artisan', 'Banshee', 'Gunny', 'Handshake', 'Lab Rat', 'Turncoat', 'Vulture'];
+export const MAX_REP = 4;
+
+// The sold_by field has ~77 spellings: "Turncoat R.2", "Artisan R3",
+// "Gunny L3", "Handshake Rank 4", "Lab Rat LL2", "Gunny level 4",
+// "Gunny R.2 and Banshee R.3", "Turncoat after Like a Boss - …", "R.??".
+// Returns one offer per vendor named: { vendor, rep (number or null),
+// after (unlocking task or null) }. Loot-only, rewards and "???" give [].
+const OFFER_RE = new RegExp(
+  `\\b(${VENDORS.join('|')})\\b(?:\\s*(?:R|Rank|Lv|LL|L|level)\\.?\\s*(\\d|\\?+))?(?:\\s+after\\s+(.+?)\\s*$)?`,
+  'gi',
+);
+
+export function parseOffers(soldBy) {
+  if (!soldBy) return [];
+  const offers = [];
+  for (const m of String(soldBy).matchAll(OFFER_RE)) {
+    const vendor = VENDORS.find((v) => v.toLowerCase() === m[1].toLowerCase());
+    if (offers.some((o) => o.vendor === vendor)) continue;
+    const rep = m[2] && /^\d$/.test(m[2]) ? Number(m[2]) : null;
+    offers.push({ vendor, rep: rep >= 1 && rep <= MAX_REP ? rep : null, after: m[3] || null });
+  }
+  return offers;
 }
 
 // Names too generic to link on their own without flooding every task.
@@ -209,10 +227,19 @@ export function matchesQuery(record, query) {
   return q.split(/\s+/).every((word) => text.includes(word));
 }
 
-// Progress codes: a compact, copy-pasteable string for moving progress
-// between devices. base64url(JSON) so it survives chat apps.
-export function encodeProgress(progress) {
-  const payload = JSON.stringify({ v: 1, t: Object.keys(progress.tasks || {}), k: Object.keys(progress.keys || {}) });
+// Progress codes: a compact, copy-pasteable string for moving one
+// character between devices. base64url(JSON) so it survives chat apps.
+// v2 adds name, faction and vendor rep; v1 codes (tasks and keys only)
+// still import.
+export function encodeProgress(c) {
+  const payload = JSON.stringify({
+    v: 2,
+    n: c.name || undefined,
+    f: c.faction || undefined,
+    t: Object.keys(c.tasks || {}),
+    k: Object.keys(c.keys || {}),
+    r: c.rep && Object.keys(c.rep).length ? c.rep : undefined,
+  });
   const b64 = typeof btoa === 'function'
     ? btoa(unescape(encodeURIComponent(payload)))
     : Buffer.from(payload, 'utf8').toString('base64');
@@ -226,7 +253,17 @@ export function decodeProgress(code) {
     ? decodeURIComponent(escape(atob(padded)))
     : Buffer.from(padded, 'base64').toString('utf8');
   const data = JSON.parse(json);
-  if (data?.v !== 1 || !Array.isArray(data.t) || !Array.isArray(data.k)) throw new Error('Not a progress code');
+  if (![1, 2].includes(data?.v) || !Array.isArray(data.t) || !Array.isArray(data.k)) throw new Error('Not a progress code');
   const toMap = (ids) => Object.fromEntries(ids.filter((id) => typeof id === 'string').map((id) => [id, true]));
-  return { tasks: toMap(data.t), keys: toMap(data.k) };
+  const rep = {};
+  for (const [vendor, level] of Object.entries(data.r || {})) {
+    if (VENDORS.includes(vendor) && Number.isInteger(level) && level >= 1 && level <= MAX_REP) rep[vendor] = level;
+  }
+  return {
+    name: typeof data.n === 'string' ? data.n.slice(0, 40) : '',
+    faction: typeof data.f === 'string' && (FACTIONS[data.f] || data.f === 'all') ? data.f : '',
+    tasks: toMap(data.t),
+    keys: toMap(data.k),
+    rep,
+  };
 }
