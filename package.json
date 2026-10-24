@@ -1,0 +1,14 @@
+{
+  "name": "gzw-field-guide",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Installable companion site for Gray Zone Warfare: item database, task tracker, keys and loot finder.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
