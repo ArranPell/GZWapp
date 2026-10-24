@@ -1,7 +1,7 @@
-import { html, mount, toast, select } from '../ui.js';
+import { html, mount, toast } from '../ui.js';
 import { version, refreshAll } from '../api.js';
-import { progress, prefs } from '../store.js';
-import { encodeProgress, decodeProgress, FACTIONS } from '../lib.js';
+import { progress } from '../store.js';
+import { encodeProgress, decodeProgress } from '../lib.js';
 
 const fmtDate = (iso) => {
   try {
@@ -22,19 +22,9 @@ export async function settingsView(ctx) {
     <header class="page-head"><h1>Progress &amp; data</h1></header>
 
     <section class="panel">
-      <h2>Your faction</h2>
-      ${select('faction', [
-        ['', 'Not set (all factions)'],
-        ...Object.entries(FACTIONS).map(([code, f]) => [code, `${code}: ${f.name} (${f.start})`]),
-        ['all', 'All factions'],
-      ], prefs.faction, 'Faction')}
-      <p class="muted small">Shared starter tasks show in your faction's starting town, and other factions' exclusive tasks are hidden. Pick "All factions" when playing alongside someone from another faction.</p>
-    </section>
-
-    <section class="panel">
-      <h2>Your progress</h2>
-      <p>${nTasks} tasks done, ${nKeys} keys ticked. Saved in this browser only.</p>
-      <p class="muted small">To move it to another device (or keep a backup), copy this code and paste it into the box below on the other device.</p>
+      <h2>${p.name}'s progress</h2>
+      <p>${nTasks} tasks done, ${nKeys} keys ticked. Saved in this browser only. <a href="#/characters">Characters</a></p>
+      <p class="muted small">To move this character to another device (or keep a backup), copy the code and paste it below on the other device. It carries the name, faction, tasks, keys and vendor rep.</p>
       <div class="code-row">
         <input class="code" id="export-code" readonly value="${encodeProgress(p)}" aria-label="Progress code">
         <button class="btn" type="button" id="copy-code">Copy</button>
@@ -43,8 +33,8 @@ export async function settingsView(ctx) {
         <textarea id="import-code" rows="3" placeholder="Paste a code from another device"></textarea>
       </label>
       <div class="btn-row">
-        <button class="btn" type="button" data-import="merge">Add to my progress</button>
-        <button class="btn btn-ghost" type="button" data-import="replace">Replace my progress</button>
+        <button class="btn" type="button" data-import="merge">Add to ${p.name}</button>
+        <button class="btn btn-ghost" type="button" data-import="replace">Replace ${p.name}</button>
       </div>
     </section>
 
@@ -57,7 +47,7 @@ export async function settingsView(ctx) {
 
     <section class="panel">
       <h2>Reset</h2>
-      <button class="btn btn-danger" type="button" id="reset">Clear all progress</button>
+      <button class="btn btn-danger" type="button" id="reset">Clear ${p.name}'s progress</button>
     </section>
 
     <section class="panel about">
@@ -69,10 +59,6 @@ export async function settingsView(ctx) {
 
   const $ = (s) => ctx.root.querySelector(s);
 
-  $('select[name=faction]').addEventListener('change', (e) => {
-    prefs.setFaction(e.target.value);
-    toast(e.target.value && e.target.value !== 'all' ? `Showing ${e.target.value} tasks` : 'Showing all factions');
-  });
 
   $('#copy-code').addEventListener('click', async () => {
     const code = $('#export-code').value;
@@ -94,7 +80,7 @@ export async function settingsView(ctx) {
       return;
     }
     if (b.dataset.import === 'replace') {
-      if (!confirm('Replace your progress on this device with the pasted code?')) return;
+      if (!confirm(`Replace ${p.name}'s progress on this device with the pasted code?`)) return;
       progress.replace(next);
     } else {
       progress.merge(next);
@@ -110,7 +96,7 @@ export async function settingsView(ctx) {
   });
 
   $('#reset').addEventListener('click', () => {
-    if (!confirm('Clear every ticked task and key on this device? This cannot be undone.')) return;
+    if (!confirm(`Clear every ticked task, key and rep level for ${p.name}? This cannot be undone.`)) return;
     progress.reset();
     toast('Progress cleared');
     ctx.rerender();

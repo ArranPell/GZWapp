@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  splitObjectives, findAreas, taskLocations, keyArea, parseSoldBy, taskMentions,
+  splitObjectives, findAreas, taskLocations, keyArea, parseOffers, taskMentions,
   fieldLabel, numericField, matchesQuery, encodeProgress, decodeProgress, collapseRepeat,
   parseFactions, applyFaction,
 } from '../site/js/lib.js';
@@ -75,11 +75,30 @@ test('keyArea reads the usage text, then the name', () => {
   assert.equal(keyArea({ name: 'PLA Shed' }), 'Unknown');
 });
 
-test('parseSoldBy splits vendor and reputation level', () => {
-  assert.deepEqual(parseSoldBy('Turncoat R.2'), { vendor: 'Turncoat', rep: 2 });
-  assert.deepEqual(parseSoldBy('Lab Rat R.1'), { vendor: 'Lab Rat', rep: 1 });
-  assert.deepEqual(parseSoldBy('Handshake'), { vendor: 'Handshake', rep: null });
-  assert.equal(parseSoldBy(undefined), null);
+test('parseOffers reads every rep spelling in the data', () => {
+  const one = (s) => parseOffers(s).map((o) => [o.vendor, o.rep]);
+  assert.deepEqual(one('Turncoat R.2'), [['Turncoat', 2]]);
+  assert.deepEqual(one('Artisan R3'), [['Artisan', 3]]);
+  assert.deepEqual(one('Gunny L3'), [['Gunny', 3]]);
+  assert.deepEqual(one('Handshake Rank 4'), [['Handshake', 4]]);
+  assert.deepEqual(one('Lab Rat LL2'), [['Lab Rat', 2]]);
+  assert.deepEqual(one('Lab Rat Lv.3'), [['Lab Rat', 3]]);
+  assert.deepEqual(one('Gunny level 4'), [['Gunny', 4]]);
+  assert.deepEqual(one('Gunny R.??'), [['Gunny', null]]);
+  assert.deepEqual(one('Handshake'), [['Handshake', null]]);
+});
+
+test('parseOffers handles several vendors, looting and unlock tasks', () => {
+  const one = (s) => parseOffers(s).map((o) => [o.vendor, o.rep]);
+  assert.deepEqual(one('Gunny R.2 and Banshee R.3'), [['Gunny', 2], ['Banshee', 3]]);
+  assert.deepEqual(one('Artisan R.3 Turncoat R.2'), [['Artisan', 3], ['Turncoat', 2]]);
+  assert.deepEqual(one('Handshake R.1 Looting'), [['Handshake', 1]]);
+  assert.deepEqual(parseOffers("Turncoat after Like a Boss - Grin's 1911 C"), [
+    { vendor: 'Turncoat', rep: null, after: "Like a Boss - Grin's 1911 C" },
+  ]);
+  for (const none of ['Loot only', '???', 'N/A', 'Tasks reward only', 'Twitch Drop', "Can't be bought or looted", undefined]) {
+    assert.deepEqual(parseOffers(none), [], String(none));
+  }
 });
 
 test('taskMentions links items named in task text on word boundaries', () => {
@@ -124,12 +143,28 @@ test('collapseRepeat keeps one copy of a doubled paragraph', () => {
   assert.equal(collapseRepeat(undefined), undefined);
 });
 
-test('progress codes round-trip', () => {
-  const progress = { tasks: { 'a-shot-in-the-dark': true, 'big-fish': true }, keys: { 'a102-key': true } };
-  const code = encodeProgress(progress);
+test('progress codes round-trip a whole character', () => {
+  const c = {
+    name: 'Main', faction: 'LRI',
+    tasks: { 'a-shot-in-the-dark': true, 'big-fish': true }, keys: { 'a102-key': true },
+    rep: { Gunny: 3, Handshake: 1 },
+  };
+  const code = encodeProgress(c);
   assert.match(code, /^[A-Za-z0-9_-]+$/);
-  assert.deepEqual(decodeProgress(code), progress);
+  assert.deepEqual(decodeProgress(code), c);
   assert.throws(() => decodeProgress('not-a-code'));
+});
+
+test('progress codes from the first release still import', () => {
+  const v1 = Buffer.from(JSON.stringify({ v: 1, t: ['big-fish'], k: [] })).toString('base64');
+  assert.deepEqual(decodeProgress(v1), { name: '', faction: '', tasks: { 'big-fish': true }, keys: {}, rep: {} });
+});
+
+test('decodeProgress drops junk rep and faction values', () => {
+  const raw = Buffer.from(JSON.stringify({ v: 2, f: 'XYZ', t: [], k: [], r: { Gunny: 9, Nobody: 2, Banshee: 2 } })).toString('base64');
+  const c = decodeProgress(raw);
+  assert.equal(c.faction, '');
+  assert.deepEqual(c.rep, { Banshee: 2 });
 });
 
 test('parseFactions reads codes and full names', () => {

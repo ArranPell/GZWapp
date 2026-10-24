@@ -25,6 +25,7 @@ const SHELL_FILES = [
   './js/pwa.js',
   './js/store.js',
   './js/ui.js',
+  './js/views/characters.js',
   './js/views/database.js',
   './js/views/home.js',
   './js/views/item.js',
