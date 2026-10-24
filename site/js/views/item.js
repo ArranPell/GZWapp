@@ -1,5 +1,5 @@
 import { html, mount, empty, img, taskHref, href, fmtCount } from '../ui.js';
-import { findRecord, loadTasks, loadKeys } from '../data.js';
+import { findRecord, loadMyTasks, loadKeys } from '../data.js';
 import { datasetLabel, groupOf, HIDDEN_FIELDS, TASK_DATASETS } from '../catalog.js';
 import { fieldLabel, taskMentions, keyArea } from '../lib.js';
 import { progress } from '../store.js';
@@ -71,7 +71,7 @@ export async function itemView(ctx) {
 
   // Cross-references load after the page is up; they are a bonus, not a blocker.
   try {
-    const { list } = await loadTasks();
+    const { list } = await loadMyTasks();
     if (!ctx.alive()) return;
     const sections = [];
 

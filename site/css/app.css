@@ -164,6 +164,8 @@ h2 { font-size: 1.2rem; }
 .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
 .btn-danger { background: transparent; color: var(--danger); border: 1px solid currentColor; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn-sub { font-weight: 400; opacity: 0.75; margin-left: 4px; }
+.faction-pick { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
 
 .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; scrollbar-width: thin; }
 .chip {
@@ -212,6 +214,7 @@ h2 { font-size: 1.2rem; }
 .badge { border: 1px solid var(--line); color: var(--muted); font-weight: 500; }
 .badge-main { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 .badge-hidden { color: #ad9ee6; border-color: color-mix(in srgb, #ad9ee6 50%, transparent); }
+.badge-faction { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
 .badge-contract { color: #74aee0; border-color: color-mix(in srgb, #74aee0 50%, transparent); }
 
 /* ---------- Task list ---------- */

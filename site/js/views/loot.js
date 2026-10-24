@@ -1,5 +1,5 @@
 import { html, mount, row, select, searchBox, empty, itemHref, debounce, fmtCount } from '../ui.js';
-import { loadLoot } from '../data.js';
+import { loadLoot, loadMyTasks } from '../data.js';
 import { datasetLabel, LOOT_DATASETS } from '../catalog.js';
 import { progress } from '../store.js';
 import { matchesQuery, numericField } from '../lib.js';
@@ -11,13 +11,13 @@ const SORTS = {
   price: ['Sell price (high first)', (a, b) => (numericField(b, 'sell_price') ?? -1) - (numericField(a, 'sell_price') ?? -1)],
 };
 
-function lootRow(r) {
+function lootRow(r, mine) {
   const facts = [datasetLabel(r.dataset), !String(r.weight || '').includes('?') && r.weight, r.grid_size && `${r.grid_size} slots`, r.sell_price && `sells ${r.sell_price}`].filter(Boolean);
-  return row({ link: itemHref(r.dataset, r.id), image: r.image, title: r.name, sub: facts.join(' · '), extra: taskChips(r.tasks) });
+  return row({ link: itemHref(r.dataset, r.id), image: r.image, title: r.name, sub: facts.join(' · '), extra: taskChips(r.tasks, mine) });
 }
 
 export async function lootView(ctx) {
-  const loot = await loadLoot();
+  const [loot, { byId: mine }] = await Promise.all([loadLoot(), loadMyTasks()]);
   if (!ctx.alive()) return;
 
   const present = LOOT_DATASETS.filter((d) => loot.some((r) => r.dataset === d));
@@ -51,14 +51,14 @@ export async function lootView(ctx) {
     const rows = loot
       .filter((r) => {
         if (f.cat && r.dataset !== f.cat) return false;
-        if (f.tasks === 'any' && !r.tasks.length) return false;
-        if (f.tasks === 'open' && !r.tasks.some((t) => !progress.isTaskDone(t.id))) return false;
+        if (f.tasks === 'any' && !r.tasks.some((t) => mine.has(t.id))) return false;
+        if (f.tasks === 'open' && !r.tasks.some((t) => mine.has(t.id) && !progress.isTaskDone(t.id))) return false;
         return matchesQuery(r, f.q);
       })
       .sort(SORTS[f.sort][1]);
     $('#loot-count').textContent = fmtCount(rows.length, 'item');
     mount($('#loot-list'), rows.length
-      ? rows.map(lootRow)
+      ? rows.map((r) => lootRow(r, mine))
       : html`<li>${empty(f.tasks === 'open' ? 'Nothing named in your open tasks matches. Try “All items”.' : 'No items match these filters.')}</li>`);
   }
 

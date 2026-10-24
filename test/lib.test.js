@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   splitObjectives, findAreas, taskLocations, keyArea, parseSoldBy, taskMentions,
   fieldLabel, numericField, matchesQuery, encodeProgress, decodeProgress, collapseRepeat,
+  parseFactions, applyFaction,
 } from '../site/js/lib.js';
 
 test('splitObjectives splits on leading verbs and drops repeats', () => {
@@ -129,4 +130,33 @@ test('progress codes round-trip', () => {
   assert.match(code, /^[A-Za-z0-9_-]+$/);
   assert.deepEqual(decodeProgress(code), progress);
   assert.throws(() => decodeProgress('not-a-code'));
+});
+
+test('parseFactions reads codes and full names', () => {
+  assert.deepEqual(parseFactions('LRI'), ['LRI']);
+  assert.deepEqual(parseFactions('Lamang Recovery Initiative'), ['LRI']);
+  assert.deepEqual(parseFactions('CSI,LRI').sort(), ['CSI', 'LRI']);
+  assert.deepEqual(parseFactions('MSS / CSI').sort(), ['CSI', 'MSS']);
+  assert.deepEqual(parseFactions(undefined), []);
+  // "Lamang Army Forces" is not the LRI player faction.
+  assert.deepEqual(parseFactions('Lamang Army Forces'), []);
+});
+
+test('applyFaction hides other factions and localises starter tasks', () => {
+  const tasks = [
+    { id: 'shared', areas: ['Kiu Vongsa', 'Nam Thaven', 'Pha Lang'], factions: [] },
+    { id: 'starter-plus', areas: ['Kiu Vongsa', 'Nam Thaven', 'Pha Lang', 'Tiger Bay'], factions: [] },
+    { id: 'csi-only', areas: ['Lamang Island'], factions: ['CSI'] },
+    { id: 'lri-only', areas: ['Tiger Bay'], factions: ['LRI'] },
+    { id: 'near-town', areas: ['Nam Thaven'], factions: [] },
+  ];
+  const lri = applyFaction(tasks, 'LRI');
+  assert.deepEqual(lri.map((t) => t.id), ['shared', 'starter-plus', 'lri-only', 'near-town']);
+  assert.deepEqual(lri[0].areas, ['Pha Lang']);
+  assert.deepEqual(lri[1].areas, ['Pha Lang', 'Tiger Bay']);
+  assert.deepEqual(lri[3].areas, ['Nam Thaven'], 'a single-town task is left alone');
+  assert.deepEqual(applyFaction(tasks, 'CSI')[0].areas, ['Kiu Vongsa']);
+  assert.equal(applyFaction(tasks, 'all'), tasks);
+  assert.equal(applyFaction(tasks, ''), tasks);
+  assert.deepEqual(tasks[0].areas, ['Kiu Vongsa', 'Nam Thaven', 'Pha Lang'], 'input not mutated');
 });

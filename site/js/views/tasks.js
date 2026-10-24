@@ -1,13 +1,28 @@
 import { html, mount, select, searchBox, progressBar, empty, img, itemHref, taskHref, href, debounce, fmtCount } from '../ui.js';
-import { loadTasks, loadKeys, loadLoot } from '../data.js';
-import { progress } from '../store.js';
-import { matchesQuery } from '../lib.js';
+import { loadTasks, loadMyTasks, loadKeys, loadLoot } from '../data.js';
+import { progress, prefs } from '../store.js';
+import { matchesQuery, applyFaction, FACTIONS } from '../lib.js';
 
 const KINDS = ['Main', 'Side', 'Contract', 'Hidden'];
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 export const vendorBadge = (v) => html`<span class="vendor vendor-${slug(v)}">${v}</span>`;
-const kindBadges = (kinds) => kinds.map((k) => html`<span class="badge badge-${slug(k)}">${k}</span>`);
+const kindBadges = (t) => [
+  ...t.kinds.map((k) => html`<span class="badge badge-${slug(k)}">${k}</span>`),
+  t.factions.length ? html`<span class="badge badge-faction">${t.factions.join(' / ')} only</span>` : '',
+];
+
+// Asked once on the Tasks page; also changeable under Progress & data.
+export function factionPicker() {
+  return html`<section class="panel faction-pick">
+    <h2>Which faction do you play?</h2>
+    <p class="muted small">Shared starter tasks then show in your own starting town, and other factions' exclusive tasks are hidden.</p>
+    <div class="btn-row">
+      ${Object.entries(FACTIONS).map(([code, f]) => html`<button class="btn" type="button" data-faction="${code}" title="${f.name}">${code} <span class="btn-sub">${f.start}</span></button>`)}
+      <button class="btn btn-ghost" type="button" data-faction="all">All factions</button>
+    </div>
+  </section>`;
+}
 
 function check(t) {
   return html`<label class="check" title="Mark as done">
@@ -33,7 +48,7 @@ function taskRow(t) {
       ${check(t)}
       <button class="task-toggle" type="button" aria-expanded="false">
         <span class="task-name">${t.name}</span>
-        <span class="task-meta">${vendorBadge(t.vendor)}${t.areas.length ? html`<span class="muted">${t.areas.join(' · ')}</span>` : ''}${kindBadges(t.kinds)}</span>
+        <span class="task-meta">${vendorBadge(t.vendor)}${t.areas.length ? html`<span class="muted">${t.areas.join(' · ')}</span>` : ''}${kindBadges(t)}</span>
       </button>
     </div>
     <div class="task-body" hidden></div>
@@ -41,8 +56,9 @@ function taskRow(t) {
 }
 
 export async function tasksView(ctx) {
-  const { list, byId, byName } = await loadTasks();
+  const { list, byId, byName } = await loadMyTasks();
   if (!ctx.alive()) return;
+  const faction = FACTIONS[prefs.faction];
 
   const vendors = [...new Set(list.map((t) => t.vendor).filter(Boolean))].sort();
   const areas = [...new Set(list.flatMap((t) => t.areas))].sort();
@@ -58,9 +74,11 @@ export async function tasksView(ctx) {
   mount(ctx.root, html`
     <header class="page-head">
       <h1>Tasks</h1>
+      ${faction ? html`<p class="muted small">${prefs.faction} tasks, starting in ${faction.start} · <a href="#/settings">change</a></p>` : ''}
       <p class="muted" id="task-summary"></p>
       <div id="task-progress"></div>
     </header>
+    ${prefs.faction ? '' : factionPicker()}
     <div class="chips" id="vendor-chips" role="group" aria-label="Vendor"></div>
     <form class="toolbar" id="task-filters" onsubmit="return false">
       ${searchBox(f.q, 'Task, objective, place…')}
@@ -73,6 +91,13 @@ export async function tasksView(ctx) {
   `);
 
   const $ = (id) => ctx.root.querySelector(id);
+
+  ctx.root.querySelector('.faction-pick')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-faction]');
+    if (!b) return;
+    prefs.setFaction(b.dataset.faction);
+    ctx.rerender();
+  });
 
   function renderSummary() {
     const done = list.filter((t) => progress.isTaskDone(t.id)).length;
@@ -153,11 +178,14 @@ export async function taskView(ctx) {
   const [id] = ctx.match;
   const { byId, byName } = await loadTasks();
   if (!ctx.alive()) return;
-  const t = byId.get(id);
-  if (!t) {
+  const raw = byId.get(id);
+  if (!raw) {
     mount(ctx.root, empty('That task is not in the current data.'));
     return;
   }
+  // Show it as the player's faction sees it, or say why it isn't theirs.
+  const mine = applyFaction([raw], prefs.faction)[0];
+  const t = mine || raw;
 
   mount(ctx.root, html`
     <nav class="crumbs"><a href="${href('/tasks', { vendor: t.vendor })}">← ${t.vendor} tasks</a></nav>
@@ -166,7 +194,8 @@ export async function taskView(ctx) {
         ${img(t.image, '', 'detail-img detail-img-wide')}
         <div>
           <h1>${t.name}</h1>
-          <p class="task-meta">${vendorBadge(t.vendor)}${t.areas.length ? html`<span class="muted">${t.areas.join(' · ')}</span>` : ''}${kindBadges(t.kinds)}</p>
+          <p class="task-meta">${vendorBadge(t.vendor)}${t.areas.length ? html`<span class="muted">${t.areas.join(' · ')}</span>` : ''}${kindBadges(t)}</p>
+          ${mine ? '' : html`<p class="alt">Not available to ${prefs.faction}: this is a ${t.factions.join(' / ')} task.</p>`}
           <label class="check check-labelled">
             <input type="checkbox" data-task="${t.id}" ${progress.isTaskDone(t.id) ? 'checked' : ''}>
             <span class="check-box" aria-hidden="true"></span> Done

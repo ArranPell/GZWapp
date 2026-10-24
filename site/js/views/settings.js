@@ -1,7 +1,7 @@
-import { html, mount, toast } from '../ui.js';
+import { html, mount, toast, select } from '../ui.js';
 import { version, refreshAll } from '../api.js';
-import { progress } from '../store.js';
-import { encodeProgress, decodeProgress } from '../lib.js';
+import { progress, prefs } from '../store.js';
+import { encodeProgress, decodeProgress, FACTIONS } from '../lib.js';
 
 const fmtDate = (iso) => {
   try {
@@ -20,6 +20,16 @@ export async function settingsView(ctx) {
 
   mount(ctx.root, html`
     <header class="page-head"><h1>Progress &amp; data</h1></header>
+
+    <section class="panel">
+      <h2>Your faction</h2>
+      ${select('faction', [
+        ['', 'Not set (all factions)'],
+        ...Object.entries(FACTIONS).map(([code, f]) => [code, `${code}: ${f.name} (${f.start})`]),
+        ['all', 'All factions'],
+      ], prefs.faction, 'Faction')}
+      <p class="muted small">Shared starter tasks show in your faction's starting town, and other factions' exclusive tasks are hidden. Pick "All factions" when playing alongside someone from another faction.</p>
+    </section>
 
     <section class="panel">
       <h2>Your progress</h2>
@@ -58,6 +68,11 @@ export async function settingsView(ctx) {
   `);
 
   const $ = (s) => ctx.root.querySelector(s);
+
+  $('select[name=faction]').addEventListener('change', (e) => {
+    prefs.setFaction(e.target.value);
+    toast(e.target.value && e.target.value !== 'all' ? `Showing ${e.target.value} tasks` : 'Showing all factions');
+  });
 
   $('#copy-code').addEventListener('click', async () => {
     const code = $('#export-code').value;
