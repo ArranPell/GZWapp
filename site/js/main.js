@@ -8,6 +8,7 @@ import { lootView } from './views/loot.js';
 import { searchView } from './views/search.js';
 import { settingsView } from './views/settings.js';
 import { charactersView } from './views/characters.js';
+import { vendorsView, vendorView } from './views/vendors.js';
 import { characters, progress } from './store.js';
 
 const ROUTES = [
@@ -22,6 +23,8 @@ const ROUTES = [
   [/^\/search$/, searchView, 'search'],
   [/^\/settings$/, settingsView, 'settings'],
   [/^\/characters$/, charactersView, 'characters'],
+  [/^\/vendors$/, vendorsView, 'vendors'],
+  [/^\/vendor\/([^/]+)$/, vendorView, 'vendors'],
 ];
 
 const root = document.getElementById('view');

@@ -7,16 +7,40 @@ export const API_CACHE = 'gzw-api-v1';
 
 const memo = new Map();
 
-async function getJSON(path) {
-  let res;
+// The API allows 100 requests a minute per IP. Pages like Vendors pull
+// dozens of datasets, so keep at most a few requests in flight.
+const MAX_IN_FLIGHT = 6;
+let inFlight = 0;
+const waiting = [];
+
+async function limited(fn) {
+  // A finishing request hands its slot straight to the next in line, so a
+  // new caller can't slip in between and exceed the cap.
+  if (inFlight >= MAX_IN_FLIGHT) await new Promise((resolve) => waiting.push(resolve));
+  else inFlight += 1;
   try {
-    res = await fetch(API_BASE + path);
-  } catch {
-    throw new Error('Network error reaching gzw-data.dev');
+    return await fn();
+  } finally {
+    const next = waiting.shift();
+    if (next) next();
+    else inFlight -= 1;
   }
-  if (res.status === 429) throw new Error('The data API is rate limiting requests. Wait a minute and try again.');
-  if (!res.ok) throw new Error(`The data API returned ${res.status}`);
-  return res.json();
+}
+
+// The body is read inside the limited section so a slot stays taken until
+// the download has actually finished.
+function getJSON(path) {
+  return limited(async () => {
+    let res;
+    try {
+      res = await fetch(API_BASE + path);
+    } catch {
+      throw new Error('Network error reaching gzw-data.dev');
+    }
+    if (res.status === 429) throw new Error('The data API is rate limiting requests. Wait a minute and try again.');
+    if (!res.ok) throw new Error(`The data API returned ${res.status}`);
+    return res.json();
+  });
 }
 
 function cached(key, load) {

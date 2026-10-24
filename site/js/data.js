@@ -1,9 +1,9 @@
 // Enriched, app-level views of the raw datasets, shared across pages.
 
 import { dataset, datasets } from './api.js';
-import { splitObjectives, taskLocations, keyArea, taskMentions, collapseRepeat, applyFaction, parseFactions, LONG_STEP } from './lib.js';
+import { splitObjectives, taskLocations, keyArea, taskMentions, collapseRepeat, applyFaction, parseFactions, parseOffers, LONG_STEP } from './lib.js';
 import { prefs } from './store.js';
-import { LOOT_DATASETS } from './catalog.js';
+import { LOOT_DATASETS, VENDOR_DATASETS } from './catalog.js';
 
 let tasksPromise = null;
 
@@ -95,6 +95,29 @@ export async function loadMyTasks() {
   const all = await loadTasks();
   const list = applyFaction(all.list, prefs.faction);
   return { ...all, list, byId: new Map(list.map((t) => [t.id, t])), all: all.list };
+}
+
+let stockPromise = null;
+
+// Everything vendors sell: Map<vendor name, offer[]>, where each offer is
+// { item, dataset, rep, after }. Pulls ~45 datasets (cached after the first
+// visit); the request limiter in api.js keeps that under the rate limit.
+export function loadVendorStock() {
+  if (!stockPromise) {
+    stockPromise = datasets(VENDOR_DATASETS)
+      .then((groups) => {
+        const stock = new Map();
+        groups.forEach((rows, i) => rows.forEach((item) => {
+          for (const o of parseOffers(item.sold_by)) {
+            if (!stock.has(o.vendor)) stock.set(o.vendor, []);
+            stock.get(o.vendor).push({ item, dataset: VENDOR_DATASETS[i], rep: o.rep, after: o.after });
+          }
+        }));
+        return stock;
+      })
+      .catch((err) => { stockPromise = null; throw err; });
+  }
+  return stockPromise;
 }
 
 export async function findRecord(name, id) {

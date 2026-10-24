@@ -34,6 +34,7 @@ const SHELL_FILES = [
   './js/views/search.js',
   './js/views/settings.js',
   './js/views/tasks.js',
+  './js/views/vendors.js',
 ];
 
 self.addEventListener('install', (event) => {
