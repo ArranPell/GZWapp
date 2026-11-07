@@ -144,6 +144,16 @@ export const LONG_STEP = 160;
 export const VENDORS = ['Artisan', 'Banshee', 'Gunny', 'Handshake', 'Lab Rat', 'Turncoat', 'Vulture'];
 export const MAX_REP = 4;
 
+// A few tasks arrive without a vendor field, but their objectives still say
+// who to report to ("…and report back to Turncoat").
+const REPORT_TO_RE = new RegExp(`\\b(?:report(?:\\s+back)?|deliver(?:\\s+it)?|bring(?:\\s+it)?|hand(?:\\s+it)?(?:\\s+in)?)\\s+(?:\\S+\\s+){0,6}?to\\s+(${VENDORS.join('|')})\\b`, 'i');
+
+export function taskVendor(task) {
+  if (task?.vendor) return task.vendor;
+  const m = normQuotes(`${task?.objectives || ''} ${task?.briefing || ''}`).match(REPORT_TO_RE);
+  return m ? VENDORS.find((v) => v.toLowerCase() === m[1].toLowerCase()) : '';
+}
+
 // The sold_by field has ~77 spellings: "Turncoat R.2", "Artisan R3",
 // "Gunny L3", "Handshake Rank 4", "Lab Rat LL2", "Gunny level 4",
 // "Gunny R.2 and Banshee R.3", "Turncoat after Like a Boss - …", "R.??".
@@ -164,6 +174,36 @@ export function parseOffers(soldBy) {
     offers.push({ vendor, rep: rep >= 1 && rep <= MAX_REP ? rep : null, after: m[3] || null });
   }
   return offers;
+}
+
+// Wiki guides for hidden tasks usually say how the task starts ("To trigger
+// this task you will need to…"). Returns that sentence, or ''.
+const TRIGGER_RE = /\b(?:trigger(?:s|ed)?|to (?:start|unlock|begin|activate|get) (?:this|the) (?:task|quest|mission)|(?:task|quest) (?:starts|begins|is started|is unlocked))\b/i;
+
+export function findTrigger(text) {
+  if (!text) return '';
+  const sentences = String(text).split(/\s*\n\s*|(?<=[.!?])\s+(?=[A-Z])/);
+  return sentences.map((s) => s.replace(/\s+/g, ' ').trim()).find((s) => TRIGGER_RE.test(s)) || '';
+}
+
+// Guide sections run to the end of the page on the wiki, often with their
+// own level-2 headings ("Step 1", "Required Items"). These end it.
+export const GUIDE_STOP = new Set(['trivia', 'gallery', 'references', 'videos', 'video', 'history', 'changelog', 'change log', 'see also', 'navigation', 'patch history']);
+
+// Task list sections: one per region, the player's starting town first,
+// then A–Z, with tasks that name no region last. Tasks spanning regions sit
+// under the first one named.
+export const NO_REGION = 'Anywhere / not stated';
+
+export function groupByRegion(tasks, first = '') {
+  const groups = new Map();
+  for (const t of tasks) {
+    const area = t.areas?.[0] || NO_REGION;
+    if (!groups.has(area)) groups.set(area, []);
+    groups.get(area).push(t);
+  }
+  const rank = (a) => (a === first ? 0 : a === NO_REGION ? 2 : 1);
+  return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
 // Names too generic to link on their own without flooding every task.
@@ -191,6 +231,9 @@ const LABEL_OVERRIDES = {
   'inventory_layout_(x/y)': 'Inventory layout',
   sold_by: 'Sold by',
   grid_size: 'Grid size',
+  requirements_text: 'Requirements',
+  outcome_text: 'Outcome',
+  rewards_text: 'Rewards',
 };
 
 export function fieldLabel(key) {

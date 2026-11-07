@@ -1,14 +1,18 @@
-import { html, mount, select, searchBox, progressBar, empty, img, itemHref, taskHref, href, debounce, fmtCount } from '../ui.js';
+import { html, raw, mount, select, searchBox, progressBar, empty, img, itemHref, taskHref, href, debounce, fmtCount } from '../ui.js';
 import { loadTasks, loadMyTasks, loadKeys, loadLoot } from '../data.js';
 import { progress, prefs, characters } from '../store.js';
-import { matchesQuery, applyFaction, FACTIONS } from '../lib.js';
+import { matchesQuery, applyFaction, groupByRegion, FACTIONS } from '../lib.js';
+import { loadGuide, wikiPage } from '../wiki.js';
 
 const KINDS = ['Main', 'Side', 'Contract', 'Hidden'];
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 export const vendorBadge = (v) => html`<span class="vendor vendor-${slug(v)}">${v}</span>`;
+const isHidden = (t) => t.kinds.includes('Hidden');
 const kindBadges = (t) => [
-  ...t.kinds.map((k) => html`<span class="badge badge-${slug(k)}">${k}</span>`),
+  ...t.kinds.map((k) => (k === 'Hidden'
+    ? html`<span class="badge badge-hidden" title="Not in your task log until you set it off in the world">◆ Hidden</span>`
+    : html`<span class="badge badge-${slug(k)}">${k}</span>`)),
   t.factions.length ? html`<span class="badge badge-faction">${t.factions.join(' / ')} only</span>` : '',
 ];
 
@@ -34,16 +38,46 @@ function check(t) {
 function taskBody(t, byName) {
   const alt = t.alternate && byName.get(t.alternate.toLowerCase());
   return html`
+    ${isHidden(t) ? html`<p class="hidden-note"><strong>Hidden task.</strong> It won't be in your log until you set it off in the world.<span class="hidden-trigger"></span></p>` : ''}
     ${t.briefing ? html`<p class="briefing">${t.briefing}</p>` : ''}
     ${t.steps.length ? html`<ol class="steps">${t.steps.map((s) => html`<li>${s}</li>`)}</ol>` : html`<p class="muted">No objectives listed in the data.</p>`}
     ${t.notes.length ? html`<details class="notes"><summary>Walkthrough notes from the wiki</summary>${t.notes.map((n) => html`<p>${n}</p>`)}</details>` : ''}
     ${t.alternate ? html`<p class="alt">Branching choice with ${alt ? html`<a href="${taskHref(alt.id)}">${alt.name}</a>${progress.isTaskDone(alt.id) ? ' (you did that one)' : ''}` : t.alternate}. Doing one usually rules out the other.</p>` : ''}
+    <section class="guide" aria-live="polite"><p class="muted small">Loading the wiki guide…</p></section>
   `;
+}
+
+// The wiki's Guide section, loaded after the task body is on screen. When
+// it arrives it replaces the API's shorter walkthrough notes.
+export async function fillGuide(scope, t) {
+  const el = scope.querySelector('.guide');
+  if (!el) return;
+  const page = wikiPage(t.name);
+  let g;
+  try {
+    g = await loadGuide(t.name);
+  } catch {
+    if (el.isConnected) mount(el, html`<p class="muted small">Couldn't reach the wiki for a guide. <a href="${page}" target="_blank" rel="noopener noreferrer">Open the wiki page</a></p>`);
+    return;
+  }
+  if (!el.isConnected) return;
+  if (!g?.html) {
+    mount(el, html`<p class="muted small">The wiki has no guide for this task yet. <a href="${g?.url || page}" target="_blank" rel="noopener noreferrer">Wiki page</a></p>`);
+    return;
+  }
+  scope.querySelector('.notes')?.remove();
+  const trig = scope.querySelector('.hidden-trigger');
+  if (trig && g.trigger) mount(trig, html` <strong>How it starts:</strong> ${g.trigger}`);
+  mount(el, html`
+    <h2 class="guide-title">Where to go</h2>
+    <div class="guide-body">${raw(g.html)}</div>
+    <p class="muted small guide-credit">Guide from the <a href="${g.url}" target="_blank" rel="noopener noreferrer">Gray Zone Warfare Wiki</a> (CC BY-SA). Tap a picture for full size.</p>
+  `);
 }
 
 function taskRow(t) {
   const done = progress.isTaskDone(t.id);
-  return html`<li class="task ${done ? 'is-done' : ''}" data-id="${t.id}">
+  return html`<li class="task ${done ? 'is-done' : ''} ${isHidden(t) ? 'is-hidden-task' : ''}" data-id="${t.id}">
     <div class="task-head">
       ${check(t)}
       <button class="task-toggle" type="button" aria-expanded="false">
@@ -87,7 +121,7 @@ export async function tasksView(ctx) {
       ${select('status', [['open', 'To do'], ['done', 'Done'], ['all', 'All']], f.status, 'Status')}
     </form>
     <p class="result-count muted" id="task-count" aria-live="polite"></p>
-    <ul class="task-list" id="task-list"></ul>
+    <div id="task-list"></div>
   `);
 
   const $ = (id) => ctx.root.querySelector(id);
@@ -124,7 +158,15 @@ export async function tasksView(ctx) {
       return matchesQuery(t, f.q);
     });
     $('#task-count').textContent = fmtCount(rows.length, 'task');
-    mount($('#task-list'), rows.length ? rows.map(taskRow) : html`<li>${empty(f.status === 'open' && !f.q ? 'Nothing left to do here. Nice work.' : 'No tasks match these filters.')}</li>`);
+    if (!rows.length) {
+      mount($('#task-list'), empty(f.status === 'open' && !f.q ? 'Nothing left to do here. Nice work.' : 'No tasks match these filters.'));
+      return;
+    }
+    mount($('#task-list'), groupByRegion(rows, faction?.start).map(([area, tasks]) => html`
+      <section class="task-group">
+        <h2 class="task-group-head">${area} <span class="muted">${tasks.length}</span></h2>
+        <ul class="task-list">${tasks.map(taskRow)}</ul>
+      </section>`));
   }
 
   renderSummary();
@@ -158,7 +200,9 @@ export async function tasksView(ctx) {
     const open = btn.getAttribute('aria-expanded') !== 'true';
     btn.setAttribute('aria-expanded', open);
     if (open && !body.childElementCount) {
-      mount(body, html`${taskBody(byId.get(li.dataset.id), byName)}<a class="more" href="${taskHref(li.dataset.id)}">Task page →</a>`);
+      const t = byId.get(li.dataset.id);
+      mount(body, html`${taskBody(t, byName)}<a class="more" href="${taskHref(li.dataset.id)}">Task page →</a>`);
+      fillGuide(body, t);
     }
     body.hidden = !open;
   });
@@ -210,6 +254,7 @@ export async function taskView(ctx) {
   ctx.root.querySelector('[data-task]').addEventListener('change', (e) => {
     progress.setTaskDone(t.id, e.target.checked);
   });
+  fillGuide(ctx.root.querySelector('.detail-section'), t);
 
   // Reverse lookup is optional extra: load it after the page is up.
   try {

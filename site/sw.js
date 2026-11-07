@@ -7,6 +7,7 @@ const VERSION = 'dev';
 const SHELL_CACHE = `gzw-shell-${VERSION}`;
 const API_CACHE = 'gzw-api-v1'; // keep in sync with js/api.js
 const API_ORIGIN = 'https://gzw-data.dev';
+const WIKI_ORIGIN = 'https://gray-zone-warfare.fandom.com'; // task guides, see js/wiki.js
 
 const SHELL_FILES = [
   './',
@@ -25,6 +26,7 @@ const SHELL_FILES = [
   './js/pwa.js',
   './js/store.js',
   './js/ui.js',
+  './js/wiki.js',
   './js/views/characters.js',
   './js/views/database.js',
   './js/views/home.js',
@@ -95,6 +97,12 @@ self.addEventListener('fetch', (event) => {
     // Search results depend on the query and go stale fast: network first.
     if (url.pathname.endsWith('/search')) event.respondWith(fromNetworkThenCache(request, API_CACHE));
     else event.respondWith(staleWhileRevalidate(event));
+    return;
+  }
+
+  // Wiki guides change rarely: same treatment as the game data.
+  if (url.origin === WIKI_ORIGIN && url.pathname === '/api.php') {
+    event.respondWith(staleWhileRevalidate(event));
     return;
   }
 
