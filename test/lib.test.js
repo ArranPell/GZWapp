@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   splitObjectives, findAreas, taskLocations, keyArea, parseOffers, taskMentions,
   fieldLabel, numericField, matchesQuery, encodeProgress, decodeProgress, collapseRepeat,
-  parseFactions, applyFaction,
+  parseFactions, applyFaction, taskVendor,
 } from '../site/js/lib.js';
 
 test('splitObjectives splits on leading verbs and drops repeats', () => {
@@ -194,4 +194,13 @@ test('applyFaction hides other factions and localises starter tasks', () => {
   assert.equal(applyFaction(tasks, 'all'), tasks);
   assert.equal(applyFaction(tasks, ''), tasks);
   assert.deepEqual(tasks[0].areas, ['Kiu Vongsa', 'Nam Thaven', 'Pha Lang'], 'input not mutated');
+});
+
+test('taskVendor keeps the field, else reads who to report to', () => {
+  assert.equal(taskVendor({ vendor: 'Gunny', objectives: 'report back to Artisan' }), 'Gunny');
+  assert.equal(taskVendor({ objectives: 'Locate the Cartons of Tahir Cigarettes and report back to Turncoat' }), 'Turncoat');
+  assert.equal(taskVendor({ objectives: 'Locate the buckets of White Lithium Grease and report back to Artisan (0/2)' }), 'Artisan');
+  assert.equal(taskVendor({ objectives: 'Deliver the case to Lab Rat' }), 'Lab Rat');
+  assert.equal(taskVendor({ objectives: 'Talk to Handshake' }), '');
+  assert.equal(taskVendor({}), '');
 });

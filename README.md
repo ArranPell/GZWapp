@@ -6,13 +6,13 @@ Data comes from the community [GZW Data API](https://gzw-data.dev/docs/), which 
 
 ## What's in it
 
-- **Tasks**: all 250 tasks, filterable by vendor, area, type (main, side, contract, hidden) and status. Each one shows its briefing and its objectives split into steps. Tick tasks off as you finish them.
+- **Tasks**: all 254 tasks, filterable by vendor, area, type (main, side, contract, hidden) and status. Each one shows its briefing and its objectives split into steps. Tick tasks off as you finish them.
 - **Characters**: up to 4, like the game. Each keeps its own name, faction, tasks, keys and vendor rep. Switch with the pill in the top bar.
 - **Vendors**: what each vendor sells, grouped by the rep level it needs, with a "What I can buy now" filter for the active character's rep. Items locked behind a task (e.g. Turncoat's *Like a Boss* unlocks) are listed separately.
 - **Faction** (per character: LRI, CSI or MSS): each faction runs the same starter tasks in its own town, and the API stores those once with all three towns. Pick your faction and they show in your starting town, and other factions' exclusive tasks are hidden. "All factions" shows everything.
 - **Keys**: every key and keycard, grouped by area, with what it opens. Tick the ones you have.
 - **Loot**: every lootable item in one list, flagged with the tasks that name it. By default it shows only items needed for tasks you haven't done.
-- **Database**: about 80 categories (weapons, ammo, armour, attachments, meds, clothing, regions, vendors and more), with search, filters, sorting and a **Compare** table view.
+- **Database**: about 90 categories (weapons, ammo, armour, attachments, meds, clothing, hideout modules and crafting materials, PMC levels, regions, vendors and more), with search, filters, sorting and a **Compare** table view.
 - **Search**: the box at the top searches everything.
 - **Offline**: pages and data you've opened are cached, so it keeps working with no signal.
 - **Progress & data** (the gear icon): copy the active character's progress code to move it between phone and PC, refresh the data, or reset.
@@ -27,7 +27,7 @@ The API is good but not complete, so some things a Tarkov-style app has aren't p
 - **No task rewards, prerequisites or level requirements**, so there's no task tree. Some tasks list an *alternate*, a branching choice where doing one usually rules out the other, and the app shows it.
 - **No list of required hand-in items.** The loot finder flags items a task *mentions by name*, so it can miss an item a task calls something else.
 - **No maps.**
-- **No gun builder.** The API has no attachment compatibility (which parts fit which gun or slot), only about a third of attachments have recoil numbers, and how the game combines modifiers isn't documented. The Database's **Compare** view, sorted by recoil or handling, ranks parts within a slot instead.
+- **No gun builder (yet).** Since the November 2026 data update the API has a `gamedata_compatibility` dataset (which parts fit which slot, from the game files), so this may now be possible. It isn't built: only about a third of attachments have recoil numbers, and how the game combines modifiers isn't documented. The Database's **Compare** view, sorted by recoil or handling, ranks parts within a slot instead.
 - **Vendor stock is partial.** 536 items list a vendor and rep level; about 330 are loot-only or rewards, a few dozen name a vendor but no rep, and only about 230 have a price.
 - **Some data is messy at the source**, for example "Artisan R3" next to "Artisan R.1", or a few weights shown as `?kg`. The app cleans up what it can: it splits run-together objectives, removes doubled briefings and merges duplicate loot entries.
 
@@ -71,6 +71,7 @@ scripts/            local server and icon renderer
 Notes for future changes:
 
 - **New JS or CSS file?** Add it to `SHELL_FILES` in `site/sw.js`. A test fails if you forget.
+- **Export cap:** `/export` returns at most 500 records. Every dataset the app uses is under that; `vendor_stock`, `gamedata_compatibility` and `gamedata_loot_by_item` are over it and would need another route.
 - **API rate limit** is 100 requests a minute; `api.js` keeps at most 6 in flight. The Vendors page pulls ~45 datasets (cached after the first visit), listed in `VENDOR_DATASETS` in `catalog.js`.
 - **Wiki images** only load without a referrer (Fandom blocks hotlinking otherwise), so `index.html` sets `<meta name="referrer" content="no-referrer">`.
 - **Releases:** the deploy job stamps the commit SHA into `sw.js`, so each release replaces the cached app in one go. Installed copies reload once when an update arrives.

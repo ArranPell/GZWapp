@@ -144,6 +144,16 @@ export const LONG_STEP = 160;
 export const VENDORS = ['Artisan', 'Banshee', 'Gunny', 'Handshake', 'Lab Rat', 'Turncoat', 'Vulture'];
 export const MAX_REP = 4;
 
+// A few tasks arrive without a vendor field, but their objectives still say
+// who to report to ("…and report back to Turncoat").
+const REPORT_TO_RE = new RegExp(`\\b(?:report(?:\\s+back)?|deliver(?:\\s+it)?|bring(?:\\s+it)?|hand(?:\\s+it)?(?:\\s+in)?)\\s+(?:\\S+\\s+){0,6}?to\\s+(${VENDORS.join('|')})\\b`, 'i');
+
+export function taskVendor(task) {
+  if (task?.vendor) return task.vendor;
+  const m = normQuotes(`${task?.objectives || ''} ${task?.briefing || ''}`).match(REPORT_TO_RE);
+  return m ? VENDORS.find((v) => v.toLowerCase() === m[1].toLowerCase()) : '';
+}
+
 // The sold_by field has ~77 spellings: "Turncoat R.2", "Artisan R3",
 // "Gunny L3", "Handshake Rank 4", "Lab Rat LL2", "Gunny level 4",
 // "Gunny R.2 and Banshee R.3", "Turncoat after Like a Boss - …", "R.??".
@@ -191,6 +201,9 @@ const LABEL_OVERRIDES = {
   'inventory_layout_(x/y)': 'Inventory layout',
   sold_by: 'Sold by',
   grid_size: 'Grid size',
+  requirements_text: 'Requirements',
+  outcome_text: 'Outcome',
+  rewards_text: 'Rewards',
 };
 
 export function fieldLabel(key) {

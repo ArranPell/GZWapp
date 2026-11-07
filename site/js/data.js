@@ -1,7 +1,7 @@
 // Enriched, app-level views of the raw datasets, shared across pages.
 
 import { dataset, datasets } from './api.js';
-import { splitObjectives, taskLocations, keyArea, taskMentions, collapseRepeat, applyFaction, parseFactions, parseOffers, LONG_STEP } from './lib.js';
+import { splitObjectives, taskLocations, keyArea, taskMentions, collapseRepeat, taskVendor, applyFaction, parseFactions, parseOffers, LONG_STEP } from './lib.js';
 import { prefs } from './store.js';
 import { LOOT_DATASETS, VENDOR_DATASETS } from './catalog.js';
 
@@ -24,6 +24,7 @@ export function loadTasks() {
           if (sets.hidden.has(t.id) || /^yes$/i.test(t.hidden_task || '')) kinds.push('Hidden');
           return {
             ...t,
+            vendor: taskVendor(t),
             briefing: collapseRepeat(t.briefing),
             areas: taskLocations(t),
             factions: parseFactions(t.faction),

@@ -29,11 +29,19 @@ export const GROUPS = [
     datasets: [
       'loot_items', 'task_items', 'valuables', 'jewellery', 'funds', 'electronics', 'household_item',
       'laboratory_supplies', 'workshop_supplies', 'military_equipment', 'military_material', 'tools',
-      'intels', 'reading_intel', 'newspapers', 'paper', 'lockboxes',
+      'intels', 'reading_intel', 'newspapers', 'paper', 'evidence', 'lockboxes',
+    ],
+  },
+  {
+    id: 'hideout',
+    label: 'Hideout & crafting',
+    datasets: [
+      'hideout_modules', 'disassembly_recipes', 'building_material', 'crafting_material',
+      'production_material', 'disassembly_material',
     ],
   },
   { id: 'keys', label: 'Keys', datasets: ['keys', 'keycards'] },
-  { id: 'world', label: 'World', datasets: ['regions', 'vendors', 'factions', 'bosses', 'loot_container', 'loot_containers'] },
+  { id: 'world', label: 'World', datasets: ['regions', 'vendors', 'factions', 'bosses', 'loot_container', 'loot_containers', 'experience_levels'] },
   { id: 'other', label: 'Other', datasets: ['squad_strike_missions', 'squad_strike_missions_item', 'upcoming_content', 'removed_content'] },
 ];
 
@@ -74,6 +82,14 @@ const LABELS = {
   main_task: 'Main tasks',
   side_task: 'Side tasks',
   hidden_task: 'Hidden tasks',
+  building_material: 'Building materials',
+  crafting_material: 'Crafting materials',
+  production_material: 'Production materials',
+  disassembly_material: 'Salvage for disassembly',
+  disassembly_recipes: 'Disassembly recipes',
+  hideout_modules: 'Hideout modules',
+  experience_levels: 'PMC levels',
+  evidence: 'Evidence',
   contract: 'Contracts',
   contracts: 'Contracts',
   tasks: 'Tasks',
@@ -92,15 +108,19 @@ export function groupOf(name) {
 // Fields worth showing on a card, in priority order.
 export const SUMMARY_FIELDS = [
   'type', 'caliber', 'nij_class', 'protection_rating', 'fire_rate', 'accuracy', 'effect', 'usage', 'slots',
-  'grid_size', 'weight', 'sold_by', 'tier', 'locals_type', 'location', 'vendor', 'full_name', 'faction',
+  'grid_size', 'weight', 'sold_by', 'requirements_text', 'outcome_text', 'duration', 'function', 'tier', 'locals_type', 'location', 'vendor', 'full_name', 'faction',
 ];
 
 // Fields never shown in the generic field table.
-export const HIDDEN_FIELDS = new Set(['id', 'name', 'image', 'numeric_values']);
+// The hideout datasets carry each list twice, raw and as *_text; show the text.
+export const HIDDEN_FIELDS = new Set([
+  'id', 'name', 'image', 'numeric_values', 'requirements', 'outcome', 'rewards',
+  'weight_source', 'grid_size_source', 'sell_price_source',
+]);
 
 // Datasets whose records carry sold_by, i.e. what vendors stock. "gear"
 // (mixed, duplicates) and "upcoming_content" (not in the game yet) are left
-// out. Checked against the API on 2026-10-24.
+// out. Checked against the API on 2026-11-07 (data of 2026-11-04).
 export const VENDOR_DATASETS = [
   'weapons', 'ammo', 'magazines', 'throwables', 'mortar_rounds',
   'stocks', 'handguards', 'mounts', 'muzzle_devices', 'barrels', 'pistol_grips', 'suppressors', 'collimators',
