@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   splitObjectives, findAreas, taskLocations, keyArea, parseOffers, taskMentions,
   fieldLabel, numericField, matchesQuery, encodeProgress, decodeProgress, collapseRepeat,
-  parseFactions, applyFaction, taskVendor,
+  parseFactions, applyFaction, taskVendor, findTrigger, groupByRegion, NO_REGION,
 } from '../site/js/lib.js';
 
 test('splitObjectives splits on leading verbs and drops repeats', () => {
@@ -203,4 +203,22 @@ test('taskVendor keeps the field, else reads who to report to', () => {
   assert.equal(taskVendor({ objectives: 'Deliver the case to Lab Rat' }), 'Lab Rat');
   assert.equal(taskVendor({ objectives: 'Talk to Handshake' }), '');
   assert.equal(taskVendor({}), '');
+});
+
+test('findTrigger picks the sentence that says how a hidden task starts', () => {
+  const guide = 'Some background first. To trigger this task you will need to travel to Khonwan Village and interact with a blue ULNRA folder. Once you trigger it, head north.';
+  assert.equal(findTrigger(guide), 'To trigger this task you will need to travel to Khonwan Village and interact with a blue ULNRA folder.');
+  assert.equal(findTrigger('To start this task you must locate the map of outposts at one LAF checkpoint. Then go.'), 'To start this task you must locate the map of outposts at one LAF checkpoint.');
+  assert.equal(findTrigger('To start this task you must locate the map within Ground Zero\nKill the ~6 soldiers'), 'To start this task you must locate the map within Ground Zero');
+  assert.equal(findTrigger('Go to the house. Pick up the letter.'), '');
+  assert.equal(findTrigger(''), '');
+});
+
+test('groupByRegion puts the starting town first and unplaced tasks last', () => {
+  const t = (name, areas) => ({ name, areas });
+  const groups = groupByRegion([t('a', ['Ban Pa']), t('b', []), t('c', ['Pha Lang', 'Ban Pa']), t('d', ['Ban Pa']), t('e', ['Fort Narith'])], 'Pha Lang');
+  assert.deepEqual(groups.map(([area, list]) => [area, list.map((x) => x.name)]), [
+    ['Pha Lang', ['c']], ['Ban Pa', ['a', 'd']], ['Fort Narith', ['e']], [NO_REGION, ['b']],
+  ]);
+  assert.deepEqual(groupByRegion([t('a', ['Sawmill'])]).map(([a]) => a), ['Sawmill']);
 });

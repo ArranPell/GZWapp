@@ -6,7 +6,7 @@ Data comes from the community [GZW Data API](https://gzw-data.dev/docs/), which 
 
 ## What's in it
 
-- **Tasks**: all 254 tasks, filterable by vendor, area, type (main, side, contract, hidden) and status. Each one shows its briefing and its objectives split into steps. Tick tasks off as you finish them.
+- **Tasks**: all 254 tasks, grouped by region (your starting town first) and filterable by vendor, area, type (main, side, contract, hidden) and status. Each one shows its briefing, its objectives split into steps, and the **wiki's guide** for it: where the items are, with map screenshots and coordinates. **Hidden tasks** are marked, and say how they're set off when the wiki knows. Tick tasks off as you finish them.
 - **Characters**: up to 4, like the game. Each keeps its own name, faction, tasks, keys and vendor rep. Switch with the pill in the top bar.
 - **Vendors**: what each vendor sells, grouped by the rep level it needs, with a "What I can buy now" filter for the active character's rep. Items locked behind a task (e.g. Turncoat's *Like a Boss* unlocks) are listed separately.
 - **Faction** (per character: LRI, CSI or MSS): each faction runs the same starter tasks in its own town, and the API stores those once with all three towns. Pick your faction and they show in your starting town, and other factions' exclusive tasks are hidden. "All factions" shows everything.
@@ -26,7 +26,7 @@ The API is good but not complete, so some things a Tarkov-style app has aren't p
 - **No ammo damage or penetration.** Ammo has velocity, accuracy and which armour class stops it.
 - **No task rewards, prerequisites or level requirements**, so there's no task tree. Some tasks list an *alternate*, a branching choice where doing one usually rules out the other, and the app shows it.
 - **No list of required hand-in items.** The loot finder flags items a task *mentions by name*, so it can miss an item a task calls something else.
-- **No maps.**
+- **No maps of our own.** Task guides come live from the wiki (its Guide section, with its map screenshots), so they need a connection the first time and are cached after.
 - **No gun builder (yet).** Since the November 2026 data update the API has a `gamedata_compatibility` dataset (which parts fit which slot, from the game files), so this may now be possible. It isn't built: only about a third of attachments have recoil numbers, and how the game combines modifiers isn't documented. The Database's **Compare** view, sorted by recoil or handling, ranks parts within a slot instead.
 - **Vendor stock is partial.** 536 items list a vendor and rep level; about 330 are loot-only or rewards, a few dozen name a vendor but no rep, and only about 230 have a price.
 - **Some data is messy at the source**, for example "Artisan R3" next to "Artisan R.1", or a few weights shown as `?kg`. The app cleans up what it can: it splits run-together objectives, removes doubled briefings and merges duplicate loot entries.
@@ -62,6 +62,7 @@ site/
   js/lib.js         pure data clean-up (objective splitting, area matching, …), unit tested
   js/data.js        tasks, keys and loot joined up for the pages
   js/store.js       characters and their progress, in localStorage
+  js/wiki.js        task guides from the wiki's MediaWiki API, cleaned to an allowlist
   js/catalog.js     how datasets are grouped and labelled
   js/views/*.js     one file per page
 test/               node:test suites
@@ -73,6 +74,7 @@ Notes for future changes:
 - **New JS or CSS file?** Add it to `SHELL_FILES` in `site/sw.js`. A test fails if you forget.
 - **Export cap:** `/export` returns at most 500 records. Every dataset the app uses is under that; `vendor_stock`, `gamedata_compatibility` and `gamedata_loot_by_item` are over it and would need another route.
 - **API rate limit** is 100 requests a minute; `api.js` keeps at most 6 in flight. The Vendors page pulls ~45 datasets (cached after the first visit), listed in `VENDOR_DATASETS` in `catalog.js`.
+- **Wiki guides** come from `gray-zone-warfare.fandom.com/api.php` (it sends `Access-Control-Allow-Origin: *` when asked with `origin=*`). The Guide section is rebuilt from an allowlist of tags in `wiki.js`, so no wiki markup, scripts or styles get through. It is CC BY-SA, and the app credits it under each guide.
 - **Wiki images** only load without a referrer (Fandom blocks hotlinking otherwise), so `index.html` sets `<meta name="referrer" content="no-referrer">`.
 - **Releases:** the deploy job stamps the commit SHA into `sw.js`, so each release replaces the cached app in one go. Installed copies reload once when an update arrives.
 - **Icons** are rendered from `site/icons/icon.svg` with `node scripts/make-icons.js` (needs Playwright).

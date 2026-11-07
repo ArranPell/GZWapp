@@ -176,6 +176,36 @@ export function parseOffers(soldBy) {
   return offers;
 }
 
+// Wiki guides for hidden tasks usually say how the task starts ("To trigger
+// this task you will need to…"). Returns that sentence, or ''.
+const TRIGGER_RE = /\b(?:trigger(?:s|ed)?|to (?:start|unlock|begin|activate|get) (?:this|the) (?:task|quest|mission)|(?:task|quest) (?:starts|begins|is started|is unlocked))\b/i;
+
+export function findTrigger(text) {
+  if (!text) return '';
+  const sentences = String(text).split(/\s*\n\s*|(?<=[.!?])\s+(?=[A-Z])/);
+  return sentences.map((s) => s.replace(/\s+/g, ' ').trim()).find((s) => TRIGGER_RE.test(s)) || '';
+}
+
+// Guide sections run to the end of the page on the wiki, often with their
+// own level-2 headings ("Step 1", "Required Items"). These end it.
+export const GUIDE_STOP = new Set(['trivia', 'gallery', 'references', 'videos', 'video', 'history', 'changelog', 'change log', 'see also', 'navigation', 'patch history']);
+
+// Task list sections: one per region, the player's starting town first,
+// then A–Z, with tasks that name no region last. Tasks spanning regions sit
+// under the first one named.
+export const NO_REGION = 'Anywhere / not stated';
+
+export function groupByRegion(tasks, first = '') {
+  const groups = new Map();
+  for (const t of tasks) {
+    const area = t.areas?.[0] || NO_REGION;
+    if (!groups.has(area)) groups.set(area, []);
+    groups.get(area).push(t);
+  }
+  const rank = (a) => (a === first ? 0 : a === NO_REGION ? 2 : 1);
+  return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 // Names too generic to link on their own without flooding every task.
 const GENERIC_NAMES = new Set(['key', 'intel', 'phone', 'laptop', 'documents', 'notes', 'map']);
 
