@@ -3,12 +3,15 @@ import { dataset } from '../api.js';
 import { loadVendorStock, loadTasks } from '../data.js';
 import { characters, progress } from '../store.js';
 import { datasetLabel } from '../catalog.js';
-import { matchesQuery, MAX_REP } from '../lib.js';
+import { matchesQuery, parseFilters, filterParams, MAX_REP } from '../lib.js';
 import { vendorBadge } from './tasks.js';
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 export const vendorHref = (name) => `#/vendor/${slug(name)}`;
 
+// The rep dropdown sits in the same form but is saved to the character,
+// not the URL, so it isn't a filter.
+const FILTERS = { q: '', cat: '', show: ['all', 'now'] };
 const REP_OPTIONS = [['', 'Not set'], ...Array.from({ length: MAX_REP }, (_, i) => [String(i + 1), `Rep ${i + 1}`])];
 
 export async function vendorsView(ctx) {
@@ -74,8 +77,7 @@ export async function vendorView(ctx) {
   }
   const offers = stock.get(v.name) || [];
   const cats = [...new Set(offers.map((o) => o.dataset))].sort((a, b) => datasetLabel(a).localeCompare(datasetLabel(b)));
-  const p = ctx.params;
-  const f = { q: p.get('q') || '', cat: p.get('cat') || '', show: p.get('show') || 'all' };
+  const f = parseFilters(FILTERS, ctx.params);
 
   mount(ctx.root, html`
     <nav class="crumbs"><a href="#/vendors">← Vendors</a></nav>
@@ -133,8 +135,8 @@ export async function vendorView(ctx) {
   const update = (e) => {
     const fd = new FormData(form);
     if (e?.target?.name === 'rep') characters.setRep(characters.active().id, v.name, Number(fd.get('rep')) || 0);
-    for (const k of ['q', 'cat', 'show']) f[k] = fd.get(k) || '';
-    ctx.setParams({ q: f.q, cat: f.cat, show: f.show === 'all' ? '' : f.show });
+    Object.assign(f, parseFilters(FILTERS, fd, f));
+    ctx.setParams(filterParams(FILTERS, f));
     renderList();
   };
   form.addEventListener('input', debounce(update, 120));

@@ -1,7 +1,9 @@
 import { html, mount, row, select, searchBox, progressBar, empty, itemHref, taskHref, debounce, fmtCount } from '../ui.js';
 import { loadKeys, loadMyTasks } from '../data.js';
 import { progress } from '../store.js';
-import { matchesQuery } from '../lib.js';
+import { matchesQuery, parseFilters, filterParams } from '../lib.js';
+
+const FILTERS = { q: '', area: '', have: ['', 'missing', 'owned'] };
 
 // Task links under a key or item. `mine` (a Map of the player's tasks by
 // id) drops other factions' tasks.
@@ -39,8 +41,7 @@ export async function keysView(ctx) {
     return rank(a) - rank(b) || counts.get(b) - counts.get(a) || a.localeCompare(b);
   });
 
-  const p = ctx.params;
-  const f = { q: p.get('q') || '', area: p.get('area') || '', have: p.get('have') || '' };
+  const f = parseFilters(FILTERS, ctx.params);
 
   mount(ctx.root, html`
     <header class="page-head">
@@ -91,9 +92,8 @@ export async function keysView(ctx) {
 
   const form = $('#key-filters');
   const update = () => {
-    const fd = new FormData(form);
-    for (const k of ['q', 'area', 'have']) f[k] = fd.get(k) || '';
-    ctx.setParams(f);
+    Object.assign(f, parseFilters(FILTERS, new FormData(form), f));
+    ctx.setParams(filterParams(FILTERS, f));
     renderList();
   };
   form.addEventListener('input', debounce(update, 120));

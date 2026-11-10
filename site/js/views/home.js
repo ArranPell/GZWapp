@@ -1,7 +1,7 @@
 import { html, mount, progressBar } from '../ui.js';
 import { loadMyTasks } from '../data.js';
 import { progress } from '../store.js';
-import { canInstall, onInstallChange, promptInstall, isStandalone } from '../pwa.js';
+import { installState, onInstallChange, promptInstall, isStandalone } from '../pwa.js';
 
 export async function homeView(ctx) {
   // The home page should never fail just because the API is slow.
@@ -49,7 +49,7 @@ export async function homeView(ctx) {
 
   const installEl = ctx.root.querySelector('#install');
   const renderInstall = () => {
-    if (isStandalone() || !canInstall()) {
+    if (isStandalone() || installState() !== 'ready') {
       installEl.innerHTML = '';
       return;
     }

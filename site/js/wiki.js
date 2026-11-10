@@ -5,7 +5,7 @@
 // Text is CC BY-SA, credited where it is shown.
 
 import { API_CACHE } from './api.js';
-import { GUIDE_STOP, findTrigger } from './lib.js';
+import { GUIDE_STOP, findTrigger, memoize } from './lib.js';
 
 export const WIKI = 'https://gray-zone-warfare.fandom.com';
 export const WIKI_CACHE = API_CACHE; // so "Refresh data" clears guides too
@@ -13,28 +13,22 @@ const IMG_HOST = 'https://static.wikia.nocookie.net/';
 
 export const wikiPage = (title) => `${WIKI}/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
 
-const memo = new Map();
-
 // { html, text, trigger, url } for the task's Guide section; html and text
 // are '' when the page has no guide. null when the wiki has no such page.
-export function loadGuide(title) {
-  if (!memo.has(title)) {
-    const url = `${WIKI}/api.php?action=parse&format=json&origin=*&redirects=1&prop=text`
-      + `&disableeditsection=1&disablelimitreport=1&page=${encodeURIComponent(title)}`;
-    memo.set(title, fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error(`The wiki returned ${res.status}`);
-        return res.json();
-      })
-      .then((j) => {
-        if (j.error) return null;
-        const guide = extractGuide(j.parse.text['*']);
-        return { ...guide, trigger: findTrigger(guide.text), url: wikiPage(j.parse.title) };
-      })
-      .catch((err) => { memo.delete(title); throw err; }));
-  }
-  return memo.get(title);
-}
+export const loadGuide = memoize((title) => {
+  const url = `${WIKI}/api.php?action=parse&format=json&origin=*&redirects=1&prop=text`
+    + `&disableeditsection=1&disablelimitreport=1&page=${encodeURIComponent(title)}`;
+  return fetch(url)
+    .then((res) => {
+      if (!res.ok) throw new Error(`The wiki returned ${res.status}`);
+      return res.json();
+    })
+    .then((j) => {
+      if (j.error) return null;
+      const guide = extractGuide(j.parse.text['*']);
+      return { ...guide, trigger: findTrigger(guide.text), url: wikiPage(j.parse.title) };
+    });
+});
 
 const headline = (h) => (h.querySelector('.mw-headline')?.textContent || h.textContent).trim();
 

@@ -310,3 +310,50 @@ export function decodeProgress(code) {
     rep,
   };
 }
+
+// A cached async load: idle → pending → resolved, or back to idle if it
+// fails so the next call retries. Calls with the same key share one promise.
+// clear() forgets everything (used by "Refresh data").
+export function memoize(load) {
+  const memo = new Map();
+  const fn = (key) => {
+    if (!memo.has(key)) {
+      memo.set(key, Promise.resolve().then(() => load(key)).catch((err) => {
+        memo.delete(key);
+        throw err;
+      }));
+    }
+    return memo.get(key);
+  };
+  fn.clear = () => memo.clear();
+  return fn;
+}
+
+// Page filters live in the URL so they survive reloads and the back button.
+// A schema maps each filter to its default: a string means free text with
+// that default; an array lists the allowed values, first one the default.
+//
+// parseFilters reads a URLSearchParams or FormData. Keys the source doesn't
+// have keep their value from `prev` (so a form without the vendor chips
+// doesn't reset the vendor). Values outside an array's list fall back to the
+// default, so the page and its dropdowns always agree.
+const filterDefault = (spec) => (Array.isArray(spec) ? spec[0] : spec);
+
+export function parseFilters(schema, source, prev = {}) {
+  const out = {};
+  for (const [k, spec] of Object.entries(schema)) {
+    if (!source.has(k)) {
+      out[k] = prev[k] ?? filterDefault(spec);
+      continue;
+    }
+    const v = String(source.get(k) ?? '');
+    out[k] = Array.isArray(spec) && !spec.includes(v) ? spec[0] : v;
+  }
+  return out;
+}
+
+// The query-string form of a filter state: defaults become '' so they drop
+// out of the URL, keeping links short.
+export function filterParams(schema, f) {
+  return Object.fromEntries(Object.entries(schema).map(([k, spec]) => [k, f[k] === filterDefault(spec) ? '' : f[k]]));
+}

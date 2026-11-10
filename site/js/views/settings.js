@@ -89,7 +89,14 @@ export async function settingsView(ctx) {
     ctx.rerender();
   }));
 
-  $('#refresh-data').addEventListener('click', async () => {
+  $('#refresh-data').addEventListener('click', async (e) => {
+    // Clearing the cache offline would leave nothing to show until the
+    // next connection, so wait for one.
+    if (navigator.onLine === false) {
+      toast("You're offline. Refresh when you're connected, or the offline copy is lost.");
+      return;
+    }
+    e.currentTarget.disabled = true;
     await refreshAll();
     toast('Fetching fresh data');
     setTimeout(() => location.reload(), 400);
