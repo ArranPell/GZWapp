@@ -30,7 +30,7 @@ const ROUTES = [
 const root = document.getElementById('view');
 const scrollMemory = new Map();
 let renderId = 0;
-let cleanup = null;
+const cleanups = []; // run when the page is left or re-rendered
 
 function parseHash() {
   const h = location.hash.replace(/^#/, '') || '/';
@@ -43,7 +43,7 @@ async function render() {
   const { path } = parseHash();
   let { params } = parseHash();
   const route = ROUTES.find(([re]) => re.test(path));
-  if (cleanup) { cleanup(); cleanup = null; }
+  cleanups.splice(0).forEach((fn) => fn());
 
   document.querySelectorAll('[data-nav]').forEach((a) => {
     a.toggleAttribute('aria-current', !!route && a.dataset.nav === route[2]);
@@ -74,7 +74,7 @@ async function render() {
       params = merged;
       ctx.params = merged;
     },
-    onCleanup(fn) { cleanup = fn; },
+    onCleanup(fn) { cleanups.push(fn); },
     rerender: render,
   };
 

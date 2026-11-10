@@ -2,7 +2,7 @@ import { html, mount, row, select, searchBox, empty, itemHref, debounce, fmtCoun
 import { loadLoot, loadMyTasks } from '../data.js';
 import { datasetLabel, LOOT_DATASETS } from '../catalog.js';
 import { progress } from '../store.js';
-import { matchesQuery, numericField } from '../lib.js';
+import { matchesQuery, numericField, parseFilters, filterParams } from '../lib.js';
 import { taskChips } from './keys.js';
 
 const SORTS = {
@@ -10,6 +10,8 @@ const SORTS = {
   weight: ['Weight (light first)', (a, b) => (numericField(a, 'weight') ?? 1e9) - (numericField(b, 'weight') ?? 1e9)],
   price: ['Sell price (high first)', (a, b) => (numericField(b, 'sell_price') ?? -1) - (numericField(a, 'sell_price') ?? -1)],
 };
+
+const FILTERS = { q: '', cat: '', tasks: ['open', 'any', 'all'], sort: Object.keys(SORTS) };
 
 function lootRow(r, mine) {
   const facts = [datasetLabel(r.dataset), !String(r.weight || '').includes('?') && r.weight, r.grid_size && `${r.grid_size} slots`, r.sell_price && `sells ${r.sell_price}`].filter(Boolean);
@@ -21,13 +23,7 @@ export async function lootView(ctx) {
   if (!ctx.alive()) return;
 
   const present = LOOT_DATASETS.filter((d) => loot.some((r) => r.dataset === d));
-  const p = ctx.params;
-  const f = {
-    q: p.get('q') || '',
-    cat: p.get('cat') || '',
-    tasks: p.get('tasks') || 'open',
-    sort: SORTS[p.get('sort')] ? p.get('sort') : 'name',
-  };
+  const f = parseFilters(FILTERS, ctx.params);
 
   mount(ctx.root, html`
     <header class="page-head">
@@ -66,9 +62,8 @@ export async function lootView(ctx) {
 
   const form = $('#loot-filters');
   const update = () => {
-    const fd = new FormData(form);
-    for (const k of ['q', 'cat', 'tasks', 'sort']) f[k] = fd.get(k) || '';
-    ctx.setParams({ q: f.q, cat: f.cat, tasks: f.tasks === 'open' ? '' : f.tasks, sort: f.sort === 'name' ? '' : f.sort });
+    Object.assign(f, parseFilters(FILTERS, new FormData(form), f));
+    ctx.setParams(filterParams(FILTERS, f));
     renderList();
   };
   form.addEventListener('input', debounce(update, 120));

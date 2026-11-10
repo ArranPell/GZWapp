@@ -2,10 +2,10 @@
 // Whole datasets come from /export in one request each; the service worker
 // keeps a copy so the app works offline and stays under the rate limit.
 
+import { memoize } from './lib.js';
+
 export const API_BASE = 'https://gzw-data.dev/api/v1';
 export const API_CACHE = 'gzw-api-v1';
-
-const memo = new Map();
 
 // The API allows 100 requests a minute per IP. Pages like Vendors pull
 // dozens of datasets, so keep at most a few requests in flight.
@@ -43,22 +43,11 @@ function getJSON(path) {
   });
 }
 
-function cached(key, load) {
-  if (!memo.has(key)) {
-    memo.set(key, load().catch((err) => { memo.delete(key); throw err; }));
-  }
-  return memo.get(key);
-}
-
-export function dataset(name) {
-  return cached(`ds:${name}`, () => getJSON(`/export/${encodeURIComponent(name)}?limit=500`).then((j) => j.data || []));
-}
+export const dataset = memoize((name) => getJSON(`/export/${encodeURIComponent(name)}?limit=500`).then((j) => j.data || []));
 
 export const datasets = (names) => Promise.all(names.map(dataset));
 
-export function version() {
-  return cached('version', () => getJSON('/version').then((j) => j.data));
-}
+export const version = memoize(() => getJSON('/version').then((j) => j.data));
 
 // Cross-dataset search. Returns { [dataset]: record[] }.
 export async function search(q, limit = 20) {
@@ -67,6 +56,7 @@ export async function search(q, limit = 20) {
 }
 
 export async function refreshAll() {
-  memo.clear();
+  dataset.clear();
+  version.clear();
   if ('caches' in window) await caches.delete(API_CACHE);
 }

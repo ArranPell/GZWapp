@@ -1,10 +1,12 @@
 import { html, raw, mount, select, searchBox, progressBar, empty, img, itemHref, taskHref, href, debounce, fmtCount } from '../ui.js';
 import { loadTasks, loadMyTasks, loadKeys, loadLoot } from '../data.js';
 import { progress, prefs, characters } from '../store.js';
-import { matchesQuery, applyFaction, groupByRegion, FACTIONS } from '../lib.js';
+import { matchesQuery, applyFaction, groupByRegion, parseFilters, filterParams, FACTIONS } from '../lib.js';
 import { loadGuide, wikiPage } from '../wiki.js';
 
 const KINDS = ['Main', 'Side', 'Contract', 'Hidden'];
+// URL filters; see parseFilters. Vendor comes from the chips, not the form.
+const FILTERS = { q: '', vendor: '', area: '', kind: '', status: ['open', 'done', 'all'] };
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 export const vendorBadge = (v) => html`<span class="vendor vendor-${slug(v)}">${v}</span>`;
@@ -96,14 +98,7 @@ export async function tasksView(ctx) {
 
   const vendors = [...new Set(list.map((t) => t.vendor).filter(Boolean))].sort();
   const areas = [...new Set(list.flatMap((t) => t.areas))].sort();
-  const p = ctx.params;
-  const f = {
-    q: p.get('q') || '',
-    vendor: p.get('vendor') || '',
-    area: p.get('area') || '',
-    kind: p.get('kind') || '',
-    status: p.get('status') || 'open',
-  };
+  const f = parseFilters(FILTERS, ctx.params);
 
   mount(ctx.root, html`
     <header class="page-head">
@@ -174,9 +169,8 @@ export async function tasksView(ctx) {
 
   const form = $('#task-filters');
   const update = () => {
-    const fd = new FormData(form);
-    for (const k of ['q', 'area', 'kind', 'status']) f[k] = fd.get(k) || '';
-    ctx.setParams({ q: f.q, area: f.area, kind: f.kind, status: f.status === 'open' ? '' : f.status });
+    Object.assign(f, parseFilters(FILTERS, new FormData(form), f));
+    ctx.setParams(filterParams(FILTERS, f));
     renderList();
   };
   form.addEventListener('input', debounce(update, 120));
@@ -186,7 +180,7 @@ export async function tasksView(ctx) {
     const chip = e.target.closest('[data-vendor]');
     if (!chip) return;
     f.vendor = chip.dataset.vendor;
-    ctx.setParams({ vendor: f.vendor });
+    ctx.setParams(filterParams(FILTERS, f));
     renderSummary();
     renderList();
   });

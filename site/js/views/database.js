@@ -1,7 +1,7 @@
 import { html, mount, select, searchBox, empty, img, itemHref, debounce, fmtCount } from '../ui.js';
 import { dataset, version } from '../api.js';
 import { GROUPS, SUMMARY_FIELDS, HIDDEN_FIELDS, datasetLabel, groupOf } from '../catalog.js';
-import { matchesQuery, numericField, parseOffers, fieldLabel } from '../lib.js';
+import { matchesQuery, numericField, parseOffers, fieldLabel, parseFilters, filterParams } from '../lib.js';
 
 export async function dbIndexView(ctx) {
   const v = await version().catch(() => null);
@@ -90,14 +90,9 @@ export async function dbListView(ctx) {
   const cols = tableColumns(rows);
   const group = groupOf(name);
 
-  const p = ctx.params;
-  const f = {
-    q: p.get('q') || '',
-    type: p.get('type') || '',
-    vendor: p.get('vendor') || '',
-    sort: sortOptions.some(([v]) => v === p.get('sort')) ? p.get('sort') : 'name',
-    view: p.get('view') === 'table' ? 'table' : 'cards',
-  };
+  // Sort keys depend on the dataset, so the schema is built per page.
+  const FILTERS = { q: '', type: '', vendor: '', sort: sortOptions.map(([v]) => v), view: ['cards', 'table'] };
+  const f = parseFilters(FILTERS, ctx.params);
 
   mount(ctx.root, html`
     <nav class="crumbs"><a href="#/db">← ${group ? group.label : 'Database'}</a></nav>
@@ -144,9 +139,8 @@ export async function dbListView(ctx) {
 
   const form = $('#db-filters');
   const update = () => {
-    const fd = new FormData(form);
-    for (const k of ['q', 'type', 'vendor', 'sort']) f[k] = fd.get(k) || '';
-    ctx.setParams({ q: f.q, type: f.type, vendor: f.vendor, sort: f.sort === 'name' ? '' : f.sort });
+    Object.assign(f, parseFilters(FILTERS, new FormData(form), f));
+    ctx.setParams(filterParams(FILTERS, f));
     renderList();
   };
   form.addEventListener('input', debounce(update, 120));
@@ -156,7 +150,7 @@ export async function dbListView(ctx) {
     const b = e.target.closest('[data-view]');
     if (!b) return;
     f.view = b.dataset.view;
-    ctx.setParams({ view: f.view === 'table' ? 'table' : '' });
+    ctx.setParams(filterParams(FILTERS, f));
     ctx.root.querySelectorAll('[data-view]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     renderList();
   });

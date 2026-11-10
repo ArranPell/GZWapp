@@ -69,6 +69,20 @@ test/               node:test suites
 scripts/            local server and icon renderer
 ```
 
+Where state lives (each is a small state machine; the file says how it moves):
+
+| State | Where | States |
+| --- | --- | --- |
+| Page render | `main.js` `render()` | loading → page, error (with Try again) or not found. `ctx.alive()` is false once you've navigated away; check it after every `await`. `ctx.onCleanup` runs on leave or re-render. |
+| Data loads | `memoize` in `lib.js`, used by `api.js`, `data.js`, `wiki.js` | idle → loading → loaded, or back to idle on failure |
+| Page filters | `FILTERS` in each view, `parseFilters` in `lib.js` | the URL query string; defaults left out |
+| Characters & progress | `store.js` | localStorage; listeners fire on every change, including from another tab |
+| Faction | `store.js` `prefs.faction` | `''` not chosen (Tasks asks), `'all'`, or `LRI` / `CSI` / `MSS` |
+| Task guide | `fillGuide` in `views/tasks.js` | loading → guide, no guide, or couldn't reach the wiki |
+| Install button | `pwa.js` | unavailable → ready → prompting → installed, or back to unavailable if dismissed |
+| App updates | `sw.js` + bottom of `main.js` | new release takes over → page reloads once |
+| API request queue | `limited()` in `api.js` | at most 6 in flight; the rest wait in line |
+
 Notes for future changes:
 
 - **New JS or CSS file?** Add it to `SHELL_FILES` in `site/sw.js`. A test fails if you forget.
@@ -77,4 +91,6 @@ Notes for future changes:
 - **Wiki guides** come from `gray-zone-warfare.fandom.com/api.php` (it sends `Access-Control-Allow-Origin: *` when asked with `origin=*`). The Guide section is rebuilt from an allowlist of tags in `wiki.js`, so no wiki markup, scripts or styles get through. It is CC BY-SA, and the app credits it under each guide.
 - **Wiki images** only load without a referrer (Fandom blocks hotlinking otherwise), so `index.html` sets `<meta name="referrer" content="no-referrer">`.
 - **Releases:** the deploy job stamps the commit SHA into `sw.js`, so each release replaces the cached app in one go. Installed copies reload once when an update arrives.
+- **Page filters** live in the URL. Each filtered page declares a `FILTERS` schema (free text `''`, or a list of allowed values with the default first) and uses `parseFilters` / `filterParams` from `lib.js`. Don't hand-parse `ctx.params`: the schema keeps the URL, the dropdowns and the list in agreement, and it drops defaults from links.
+- **Loading data once:** wrap any async loader in `memoize` from `lib.js`. Calls share one request, and a failed load is forgotten so the next visit retries. Don't hand-roll a `let promise = null` cache.
 - **Icons** are rendered from `site/icons/icon.svg` with `node scripts/make-icons.js` (needs Playwright).

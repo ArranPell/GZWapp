@@ -4,6 +4,7 @@ import {
   splitObjectives, findAreas, taskLocations, keyArea, parseOffers, taskMentions,
   fieldLabel, numericField, matchesQuery, encodeProgress, decodeProgress, collapseRepeat,
   parseFactions, applyFaction, taskVendor, findTrigger, groupByRegion, NO_REGION,
+  memoize, parseFilters, filterParams,
 } from '../site/js/lib.js';
 
 test('splitObjectives splits on leading verbs and drops repeats', () => {
@@ -221,4 +222,55 @@ test('groupByRegion puts the starting town first and unplaced tasks last', () =>
     ['Pha Lang', ['c']], ['Ban Pa', ['a', 'd']], ['Fort Narith', ['e']], [NO_REGION, ['b']],
   ]);
   assert.deepEqual(groupByRegion([t('a', ['Sawmill'])]).map(([a]) => a), ['Sawmill']);
+});
+
+test('memoize shares one load per key and retries after a failure', async () => {
+  let calls = 0;
+  let fail = true;
+  const load = memoize(async (k) => {
+    calls += 1;
+    if (fail) throw new Error('offline');
+    return `${k}!`;
+  });
+  await assert.rejects(load('a'), /offline/);
+  fail = false;
+  const [x, y] = await Promise.all([load('a'), load('a')]);
+  assert.equal(x, 'a!');
+  assert.equal(y, 'a!');
+  assert.equal(calls, 2, 'failed load forgotten, then one shared retry');
+  await load('a');
+  assert.equal(calls, 2, 'resolved load reused');
+  load.clear();
+  await load('a');
+  assert.equal(calls, 3, 'clear() forces a fresh load');
+});
+
+test('memoize turns a synchronous throw into a rejection it can retry', async () => {
+  let n = 0;
+  const load = memoize(() => { n += 1; if (n === 1) throw new Error('boom'); return n; });
+  await assert.rejects(load(), /boom/);
+  assert.equal(await load(), 2);
+});
+
+test('parseFilters applies defaults and rejects values not on the list', () => {
+  const schema = { q: '', status: ['open', 'done', 'all'], area: '' };
+  assert.deepEqual(parseFilters(schema, new URLSearchParams('')), { q: '', status: 'open', area: '' });
+  assert.deepEqual(
+    parseFilters(schema, new URLSearchParams('q=gun&status=done&area=Ban%20Pa')),
+    { q: 'gun', status: 'done', area: 'Ban Pa' },
+  );
+  assert.equal(parseFilters(schema, new URLSearchParams('status=bogus')).status, 'open', 'dropdown and list never disagree');
+  assert.equal(parseFilters(schema, new URLSearchParams('status=')).status, 'open');
+});
+
+test('parseFilters keeps earlier values for keys the source lacks', () => {
+  const schema = { q: '', vendor: '', status: ['open', 'all'] };
+  const prev = { q: 'old', vendor: 'Gunny', status: 'all' };
+  assert.deepEqual(parseFilters(schema, new URLSearchParams('q=new&status=open'), prev), { q: 'new', vendor: 'Gunny', status: 'open' });
+});
+
+test('filterParams leaves defaults out of the URL', () => {
+  const schema = { q: '', status: ['open', 'done', 'all'], sort: ['name', 'weight'] };
+  assert.deepEqual(filterParams(schema, { q: 'x', status: 'open', sort: 'weight' }), { q: 'x', status: '', sort: 'weight' });
+  assert.deepEqual(filterParams(schema, parseFilters(schema, new URLSearchParams(''))), { q: '', status: '', sort: '' });
 });
